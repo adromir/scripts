@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Gemini Mod (Toolbar & Download)
 // @namespace    http://tampermonkey.net/
-// @version      0.0.2
+// @version      0.0.3
 // @description  Enhances Google Gemini with a toolbar for snippets and canvas content download.
 // @author       Adromir
 // @match        https://gemini.google.com/*
@@ -70,9 +70,6 @@
         }
     `;
 
-    /**
-     * Injects the embedded CSS using GM_addStyle.
-     */
     function injectCustomCSS() {
         try {
             GM_addStyle(embeddedCSS);
@@ -88,7 +85,6 @@
         }
     }
 
-    // --- Snippet Definitions ---
     const buttonSnippets = [
         { label: "Greeting", text: "Hello Gemini!" },
         { label: "Explain", text: "Could you please explain ... in more detail?" },
@@ -112,8 +108,6 @@
             ]
         },
     ];
-
-    // --- Helper Functions ---
 
     function displayUserscriptMessage(message, isError = true) {
         const prefix = "Gemini Mod Userscript: ";
@@ -211,109 +205,115 @@
     const GEMINI_CANVAS_TITLE_BAR_SELECTOR = "div.toolbar.has-title";
     const GEMINI_CANVAS_COPY_BUTTON_SELECTOR = "code-immersive-panel.ng-star-inserted copy-button.ng-star-inserted button.copy-button";
     
-    // Regex for common extensions, used in sanitizeFilename
-    const COMMON_EXTENSIONS_REGEX = /\.(js|html|css|py|md|txt|json|xml|yaml|sh|bat|ps1|java|c|cpp|h|hpp|cs|go|rb|php|swift|kt|kts|dart|rs|lua|pl|sql|r|ipynb)$/i;
+    // eslint-disable-next-line no-control-regex
+    const INVALID_FILENAME_CHARS_REGEX = /[<>:"/\\|?*\x00-\x1F]/g;
+    const RESERVED_WINDOWS_NAMES_REGEX = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
+    // General pattern for "basename.extension" where extension is 1-8 alphanumeric chars.
+    // It's intentionally broad for the extension part.
+    // Basename can include spaces, dots (not as last char), hyphens, underscores.
+    const FILENAME_WITH_EXT_REGEX = /^(.+)\.([a-zA-Z0-9]{1,8})$/;
+    // For finding such a pattern as a substring (non-greedy base, ensuring it's followed by a word boundary or end of string)
+    const SUBSTRING_FILENAME_REGEX = /([\w\s.,\-()[\\]{}'!~@#$%^&+=]+?\.([a-zA-Z0-9]{1,8}))(?=\s|$|[,.;:!?])/g;
 
 
-    /**
-     * Sanitizes a string to be used as a valid filename.
-     * It tries to extract a filename-like part from the input string first.
-     * If the extracted part is already a valid filename, it's used directly.
-     * Otherwise, the extracted part (or the whole input if no specific part is found) is sanitized.
-     * @param {string} name - The original string (e.g., canvas title).
-     * @param {string} defaultExtension - The default extension if none is found or extracted.
-     * @returns {string} A sanitized filename.
-     */
-    function sanitizeFilename(name, defaultExtension = "txt") {
-        if (!name || typeof name !== 'string' || name.trim() === "") {
-            console.log(`Gemini Mod Userscript: Input name invalid or empty, defaulting to "downloaded_content.${defaultExtension}".`);
-            return `downloaded_content.${defaultExtension}`;
+    function ensureLength(filename, maxLength = 255) {
+        if (filename.length <= maxLength) {
+            return filename;
         }
-
-        let trimmedName = name.trim();
-        
-        // Regex to find a potential filename pattern (alphanumeric, dots, hyphens, underscores) ending with a known extension.
-        // This tries to capture the "most likely" filename if the title contains more text.
-        const filenamePatternRegex = /([\w.-]+?\.(?:js|html|css|py|md|txt|json|xml|yaml|sh|bat|ps1|java|c|cpp|h|hpp|cs|go|rb|php|swift|kt|kts|dart|rs|lua|pl|sql|r|ipynb))\b/gi;
-        
-        let candidateFilename = trimmedName; // Default to the whole trimmed name
-        let potentialFilenames = [];
-        let match;
-        while ((match = filenamePatternRegex.exec(trimmedName)) !== null) {
-            potentialFilenames.push(match[1]);
+        const dotIndex = filename.lastIndexOf('.');
+        if (dotIndex === -1 || dotIndex < filename.length - 10 ) { // Arbitrary: if ext is likely > 8 chars or no dot
+            return filename.substring(0, maxLength);
         }
-
-        if (potentialFilenames.length > 0) {
-            // If multiple patterns are found (e.g., "file1.js and file2.txt"), use the last one.
-            candidateFilename = potentialFilenames[potentialFilenames.length - 1];
-            console.log(`Gemini Mod Userscript: Extracted candidate filename: "${candidateFilename}" from title: "${trimmedName}"`);
-        } else {
-            console.log(`Gemini Mod Userscript: No specific filename pattern with known extension found in title: "${trimmedName}". Using whole title as base.`);
+        const base = filename.substring(0, dotIndex);
+        const ext = filename.substring(dotIndex);
+        const maxBaseLength = maxLength - ext.length;
+        if (maxBaseLength <= 0) {
+            return filename.substring(0, maxLength);
         }
-
-        // Now, check if this candidateFilename is "valid as is".
-        // "Valid as is" means: no invalid characters, and if it has an extension, it's a known one.
-        // eslint-disable-next-line no-control-regex
-        const invalidCharsRegex = /[<>:"/\\|?*\x00-\x1F]/g;
-        const hasInvalidChars = invalidCharsRegex.test(candidateFilename);
-        
-        const extMatch = candidateFilename.match(COMMON_EXTENSIONS_REGEX);
-
-        if (!hasInvalidChars && extMatch) {
-            // Candidate has a known extension and no invalid characters.
-            // Further check: ensure the base part (before extension) is also clean of invalid chars.
-            // This is slightly redundant as we tested candidateFilename, but good for sanity.
-            const basePartOfCandidate = candidateFilename.substring(0, candidateFilename.lastIndexOf(extMatch[0]));
-            if (!invalidCharsRegex.test(basePartOfCandidate)) {
-                 console.log(`Gemini Mod Userscript: Candidate filename "${candidateFilename}" considered valid and used as is.`);
-                 return candidateFilename;
-            }
-        }
-        
-        // If not returned "as is", proceed to sanitize the candidateFilename (or the original trimmedName if no candidate was extracted)
-        console.log(`Gemini Mod Userscript: Candidate filename "${candidateFilename}" requires sanitization or formatting.`);
-
-        let baseToSanitize = candidateFilename;
-        let determinedExtension = defaultExtension;
-
-        const currentExtMatch = candidateFilename.match(COMMON_EXTENSIONS_REGEX);
-        if (currentExtMatch && currentExtMatch[1]) {
-            determinedExtension = currentExtMatch[1].toLowerCase();
-            baseToSanitize = candidateFilename.substring(0, candidateFilename.lastIndexOf(currentExtMatch[0]));
-        }
-        // If baseToSanitize became empty after stripping extension (e.g. candidate was just ".js")
-        if (baseToSanitize.trim() === "" && candidateFilename !== "") {
-             baseToSanitize = "downloaded_content"; // Or try to derive from original trimmedName's non-ext part
-        } else if (baseToSanitize.trim() === "") {
-            baseToSanitize = "downloaded_content";
-        }
-
-
-        let sanitizedBase = baseToSanitize
-            .replace(invalidCharsRegex, '_') // Remove invalid characters
-            .replace(/\s+/g, '_')           // Replace spaces with underscores
-            .replace(/__+/g, '_')          // Collapse multiple underscores
-            .replace(/^[_.-]+|[_.-]+$/g, '');// Remove leading/trailing underscores, dots, or hyphens
-
-        // If after all this, the base is empty (e.g., title was just "///" or "...")
-        if (!sanitizedBase) {
-            sanitizedBase = 'downloaded_content';
-        }
-
-        // Ensure max length for the base part, leaving room for dot and extension
-        const maxBaseLength = 250 - (determinedExtension.length + 1);
-        if (sanitizedBase.length > maxBaseLength) {
-            sanitizedBase = sanitizedBase.substring(0, maxBaseLength);
-            // Clean up again if truncation left a trailing underscore
-            sanitizedBase = sanitizedBase.replace(/_+$/, ''); 
-        }
-         if (!sanitizedBase) { // If truncation made it empty
-            sanitizedBase = 'downloaded_content';
-        }
-
-        return `${sanitizedBase}.${determinedExtension}`;
+        return base.substring(0, maxBaseLength) + ext;
     }
 
+    function sanitizeBasename(baseName) {
+        if (typeof baseName !== 'string' || baseName.trim() === "") return "downloaded_document";
+        
+        let sanitized = baseName.trim()
+            .replace(INVALID_FILENAME_CHARS_REGEX, '_')
+            .replace(/\s+/g, '_')
+            .replace(/__+/g, '_')
+            .replace(/^[_.-]+|[_.-]+$/g, ''); // Remove leading/trailing problematic chars
+
+        if (!sanitized || RESERVED_WINDOWS_NAMES_REGEX.test(sanitized)) {
+            sanitized = `_${sanitized || "file"}_`; // Ensure it's not empty and not reserved
+            // Re-sanitize after modification
+            sanitized = sanitized.replace(INVALID_FILENAME_CHARS_REGEX, '_').replace(/\s+/g, '_').replace(/__+/g, '_').replace(/^[_.-]+|[_.-]+$/g, '');
+        }
+        return sanitized || "downloaded_document"; // Final fallback if sanitization results in empty string
+    }
+
+    /**
+     * Determines the filename for download based on the canvas title,
+     * prioritizing a `basename.ext` structure if found.
+     * @param {string} title - The original string (e.g., canvas title).
+     * @param {string} defaultExtension - The default extension if no structure is found.
+     * @returns {string} A processed filename.
+     */
+    function determineFilename(title, defaultExtension = "txt") {
+        const logPrefix = "Gemini Mod Userscript: determineFilename - ";
+        if (!title || typeof title !== 'string' || title.trim() === "") {
+            console.log(`${logPrefix}Input title invalid or empty, defaulting to "downloaded_document.${defaultExtension}".`);
+            return ensureLength(`downloaded_document.${defaultExtension}`);
+        }
+
+        let trimmedTitle = title.trim();
+        let baseNamePart = "";
+        let extensionPart = "";
+
+        // Attempt 1: Check if the entire trimmedTitle matches "basename.ext"
+        const fullTitleMatch = trimmedTitle.match(FILENAME_WITH_EXT_REGEX);
+        if (fullTitleMatch) {
+            const potentialBase = fullTitleMatch[1];
+            const potentialExt = fullTitleMatch[2].toLowerCase();
+            // Check if the potentialBase itself is clean (or mostly clean)
+            if (!INVALID_FILENAME_CHARS_REGEX.test(potentialBase.replace(/\s/g, '_'))) { // Allow spaces for now, will be replaced
+                baseNamePart = potentialBase;
+                extensionPart = potentialExt;
+                console.log(`${logPrefix}Entire title "${trimmedTitle}" matches basename.ext. Base: "${baseNamePart}", Ext: "${extensionPart}"`);
+            }
+        }
+
+        // Attempt 2: If full title didn't match or base was invalid, find the last substring matching "basename.ext"
+        if (!extensionPart) { // Only if not already found from full title
+            let lastMatch = null;
+            let currentMatch;
+            // Reset regex lastIndex if it's global (it is due to /g)
+            SUBSTRING_FILENAME_REGEX.lastIndex = 0; 
+            while ((currentMatch = SUBSTRING_FILENAME_REGEX.exec(trimmedTitle)) !== null) {
+                lastMatch = currentMatch;
+            }
+
+            if (lastMatch) {
+                // lastMatch[1] is the full "basename.ext" substring
+                // lastMatch[2] is the extension part from that substring
+                const substringExtMatch = lastMatch[1].match(FILENAME_WITH_EXT_REGEX);
+                if (substringExtMatch) {
+                    baseNamePart = substringExtMatch[1];
+                    extensionPart = substringExtMatch[2].toLowerCase();
+                    console.log(`${logPrefix}Found substring "${lastMatch[1]}" matching basename.ext. Base: "${baseNamePart}", Ext: "${extensionPart}"`);
+                }
+            }
+        }
+
+        // Process based on what was found
+        if (extensionPart) { // An extension was identified either from full title or substring
+            const sanitizedBase = sanitizeBasename(baseNamePart);
+            return ensureLength(`${sanitizedBase}.${extensionPart}`);
+        } else {
+            // Fallback: No "basename.ext" structure found. Sanitize the whole title and use default extension.
+            console.log(`${logPrefix}No basename.ext pattern found. Sanitizing full title "${trimmedTitle}" with default extension "${defaultExtension}".`);
+            const sanitizedTitleBase = sanitizeBasename(trimmedTitle);
+            return ensureLength(`${sanitizedTitleBase}.${defaultExtension}`);
+        }
+    }
 
     function triggerDownload(filename, content) {
         try {
@@ -362,7 +362,7 @@
                     if (titleBar) titleTextElement = titleBar.querySelector(GEMINI_CANVAS_TITLE_TEXT_SELECTOR);
                 }
                 const canvasTitle = titleTextElement ? (titleTextElement.textContent || "Untitled Canvas").trim() : "Untitled Canvas";
-                const filename = sanitizeFilename(canvasTitle); // Uses the new sanitizeFilename logic
+                const filename = determineFilename(canvasTitle); 
                 triggerDownload(filename, clipboardContent);
             } catch (err) {
                 console.error('Gemini Mod Userscript: Error reading from clipboard:', err);
@@ -439,7 +439,6 @@
         console.log("Gemini Mod Userscript: Dark mode handling is passive (toolbar is dark by default).");
     }
 
-    // --- Initialization Logic ---
     function init() {
         console.log("Gemini Mod Userscript: Initializing...");
         injectCustomCSS();
