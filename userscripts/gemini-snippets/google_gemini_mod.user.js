@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         Google Gemini Mod (Toolbar & Download)
 // @namespace    http://tampermonkey.net/
-// @version      0.0.1
+// @version      0.1.1
 // @description  Enhances Google Gemini with a toolbar for snippets and canvas content download.
 // @author       Adromir
 // @match        https://gemini.google.com/*
+// @downloadURL  https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
+// @updateURL    https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // @grant        GM_addStyle
 // @grant        GM_setClipboard
 // @grant        GM_getClipboard
