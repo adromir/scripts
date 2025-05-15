@@ -1,86 +1,166 @@
-# Immich Asset Stacker & Unstacker Scripts
+# Immich Stacking & Unstacking Bash Scripts 🗂️✨
 
-These Bash scripts utilize the Immich API to automatically stack related assets (e.g., JPG + RAW) based on filename patterns or unstack all existing asset stacks.
+This document provides an overview and usage instructions for two Bash scripts designed to manage asset stacks in an [Immich](https://immich.app/) instance:
+1.  **Immich Auto-Stacker**: Specifically designed to stack JPG/JPEG files with their corresponding RAW (DNG, CR2, etc.) counterparts.
+2.  **Immich Unstacker**: Designed to find and dissolve all existing stacks in your Immich library.
 
-**Scripts:**
+---
 
-1.  `immich-stacker.sh`: Stacks assets based on user-defined regular expression patterns to identify related files.
-2.  `immich-unstacker.sh`: Removes all stacking relationships, separating previously stacked assets.
+## ⚠️ Important Notes & Disclaimer
 
-## Prerequisites
+* **BACKUP YOUR IMMICH DATA**: Before running these scripts (especially the Unstacker or the Stacker with `DRY_RUN_CONFIG="false"`), **ensure you have a complete and verified backup of your Immich database and library files.** Incorrect usage or unexpected API behavior could lead to unintended changes or data loss.
+* **USE AT YOUR OWN RISK**: These scripts are provided "as-is" without any warranties. The authors or contributors are not responsible for any damage or data loss that may occur from their use. You are solely responsible for understanding the script's functionality and for any consequences of running it on your system and Immich instance.
+* **API Interaction**: These scripts interact directly with your Immich API. Ensure your API key has the necessary permissions.
+* **Testing**: Always test with `DRY_RUN_CONFIG="true"` first to see what actions the scripts *would* perform before making any actual changes.
+* **Performance**: For very large libraries, the scripts (especially the initial asset fetching and scanning parts) can take a significant amount of time. Use the `MAX_ASSETS_TO_PROCESS_CONFIG` or `MAX_ASSETS_TO_SCAN_CONFIG` for initial testing.
 
-Before using these scripts, ensure you have the following installed on your system:
+---
 
-* **`curl`**: A command-line tool for transferring data with URLs. (Usually pre-installed on Linux/macOS).
+## 🛠️ Common Prerequisites
+
+Both scripts require the following command-line tools to be installed and accessible in your system's PATH:
+
 * **`jq`**: A lightweight and flexible command-line JSON processor.
-    * Install on Debian/Ubuntu: `sudo apt update && sudo apt install jq`
-    * Install on Fedora: `sudo dnf install jq`
-    * Install on macOS (using Homebrew): `brew install jq`
+    * Installation: `sudo apt install jq` (Debian/Ubuntu) or check your OS package manager.
+* **`curl`**: A command-line tool for transferring data with URLs.
+    * Installation: `sudo apt install curl` (Debian/Ubuntu) or check your OS package manager.
+* **`mktemp`**: Utility to create temporary files (usually part of `coreutils`).
 
-## Configuration
+---
 
-Both scripts require configuration before the first run. Edit the script files directly:
+## ⚙️ Common Configuration Variables (within each script)
 
-1.  **`IMMICH_URL`**: Set this variable to the full base URL of your Immich instance (e.g., `http://192.168.1.100:2283` or `https://immich.yourdomain.com`). **Do not include a trailing slash (`/`)**.
-2.  **`API_KEY`**: Set this variable to a valid API Key generated within your Immich user settings. This key needs permission to read assets and modify stacks.
-3.  **`DRY_RUN`** (Optional, Recommended for first runs):
-    * Set to `true` to simulate the script's actions without making any actual changes via the API. It will print what it *would* do.
-    * Set to `false` to perform the actual stacking or unstacking operations. **Default is `false`**.
-4.  **`VERBOSE`** (Optional):
-    * Set to `true` to enable detailed debug messages during script execution. Useful for troubleshooting.
-    * Set to `false` for standard output. **Default is `false`**.
+The following configuration variables are common to both scripts and need to be set directly within each script file:
 
-### Stacker (`immich-stacker.sh`) Specific Configuration
+| Variable                      | Default Value | Description                                                                                                                               |
+| :---------------------------- | :------------ | :---------------------------------------------------------------------------------------------------------------------------------------- |
+| `API_KEY_CONFIG`              | `""`          | **Required**. Your Immich API Key. This key needs permissions to read asset metadata and to create/modify/delete stacks as applicable.         |
+| `API_URL_CONFIG`              | `""`          | **Required**. The base URL of your Immich instance (e.g., `http://immich.example.com` or `http://your-server-ip:port`). The script will append `/api` automatically. |
+| `DRY_RUN_CONFIG`              | (varies)      | If `"true"`, no changes are made to Immich; actions are only logged. **Set to `"false"` for live run. Highly recommended for initial tests.** |
+| `CURL_CONNECT_TIMEOUT_CONFIG` | `"15"`        | The maximum time in seconds that `curl` will spend trying to connect to the Immich server for each API request.                               |
+| `CURL_MAX_TIME_CONFIG`        | `"90"`        | The maximum total time in seconds that a single `curl` API request is allowed to take.                                                        |
+| `DEBUG_CURL_COMMAND_CONFIG`   | `"false"`     | If `"true"`, logs the full `curl` commands being executed (API key is in headers, not directly in the logged command string for security).    |
 
-* **`PRIMARY_EXTENSIONS`**: An array of lowercase file extensions (without the dot) that should be considered the "primary" file in a stack (often the cover image, like JPGs or HEICs). Example: `("jpg" "jpeg" "heic")`
-* **`RAW_EXTENSIONS`**: An array of lowercase file extensions (without the dot) that represent the secondary or RAW files to be stacked *with* a primary file. Example: `("dng" "cr2" "nef")`
-* **`FILENAME_REGEX_PATTERNS`**: **This is crucial.** An array of POSIX Extended Regular Expressions (ERE).
-    * Each pattern is tried against the `originalFileName` of an asset.
-    * **Each pattern MUST contain exactly ONE capturing group `(...)`**. This group must capture the common base identifier shared between related files (e.g., `IMG_1234` from `IMG_1234.JPG` and `IMG_1234.DNG`).
-    * The script uses the *first* pattern that matches. Order can matter if filenames could match multiple patterns.
-    * Add or modify patterns to match the naming schemes used by your cameras or devices. Test your regex patterns independently first!
+---
 
-### Unstacker (`immich-unstacker.sh`) Specific Configuration
+## 1. Immich Auto-Stacker (RAW+JPEG) 켜기
 
-* This script primarily uses `IMMICH_URL`, `API_KEY`, `DRY_RUN`, and `VERBOSE`. No extension or pattern configuration is needed.
-* **API Endpoint Verification**: The script uses `PUT /api/assets/{parentId}/stack/remove` by default. While this is a common pattern, **verify this endpoint** in the API documentation (`<IMMICH_URL>/api`) for your specific Immich version. If it differs, update the `unstack_endpoint` variable within the script's main logic section.
+This script automates the process of creating stacks in Immich, specifically designed to pair a primary JPG/JPEG image with its corresponding RAW image versions (e.g., `.dng`, `.cr2`).
 
-## Usage
+### 🎯 Purpose
 
-1.  **Save the Scripts:** Save the code for the stacker and unstacker into separate files (e.g., `immich_stacker.sh` and `immich_unstacker.sh`).
-2.  **Make Executable:** Open your terminal and grant execute permissions to the scripts:
-    ```bash
-    chmod +x immich-stacker.sh
-    chmod +x immich_unstacker.sh
-    ```
-3.  **Configure:** Edit the scripts as described in the "Configuration" section above.
-4.  **Run (Dry Run First!):** It is **highly recommended** to run the scripts with `DRY_RUN=true` first to ensure they identify the correct assets and actions.
-    ```bash
-    # Example Dry Run for Stacker
-    ./immich_stacker.sh
+To organize related images by stacking RAW files under a primary JPG, making your library cleaner while preserving access to the RAW originals. JPGs will always be the parent.
 
-    # Example Dry Run for Unstacker
-    ./immich_unstacker_en.sh
-    ```
-    Review the output carefully. If you want more detail, set `VERBOSE=true` as well.
-5.  **Run (Live):** Once you are confident with the dry run output, edit the desired script, set `DRY_RUN=false`, and run it again to apply the changes to your Immich library.
-    ```bash
-    # Example Live Run for Stacker
-    ./immich_stacker.sh
+### ✨ Key Features
 
-    # Example Live Run for Unstacker
-    ./immich_unstacker.sh
-    ```
+* **RAW+JPEG Pairing**: Identifies JPG/JPEG files and their corresponding RAW files based on the same base filename (e.g., `photo1.jpg` and `photo1.dng`).
+* **JPG as Parent**: Ensures that the JPG/JPEG file is always selected as the parent/cover of the stack.
+* **Skips Existing Stacks**: By default, it will not modify assets that are already part of a stack (either as a parent or a child). This behavior is controlled by `SKIP_PREVIOUS_CONFIG`.
+* **Type Filtering**: Can be configured to only process `IMAGE` types via `ASSET_TYPE_FILTER_CONFIG`.
+* **Asset Limit**: Allows limiting the number of assets fetched and processed for testing purposes via `MAX_ASSETS_TO_PROCESS_CONFIG`.
 
-## Important Notes
+### ⚙️ Stacker-Specific Configuration Variables (within the script)
 
-* **BACKUP YOUR IMMICH DATA:** Before running these scripts in live mode (`DRY_RUN=false`), ensure you have a reliable backup of your Immich database and library. Mistakes in configuration or unexpected API behavior could lead to unwanted changes.
-* **API Rate Limiting:** The scripts include a small `sleep 0.5` delay between API calls to avoid overwhelming the Immich server. If you encounter rate-limiting issues (e.g., HTTP 429 errors), you might need to increase this delay.
-* **Large Libraries:** For very large libraries (tens or hundreds of thousands of assets), the initial step of fetching all assets might be slow or memory-intensive. Future script versions might need pagination if this becomes an issue.
-* **Error Handling:** The scripts perform basic checks for API call success (HTTP status codes 200/201 for stacking, 200 for unstacking). Review the output for any reported errors. Verbose mode can help diagnose issues.
-* **Idempotency:**
-    * The **stacker** script attempts to be idempotent – running it multiple times should ideally not create duplicate stacks or cause errors if assets are already stacked correctly. It checks `stackParentId` and potentially stack children before attempting to stack.
-    * The **unstacker** script is generally idempotent – running it again after everything is unstacked will simply find no stacks to process.
+Refer to the "Common Configuration Variables" section above for `API_KEY_CONFIG`, `API_URL_CONFIG`, `DRY_RUN_CONFIG`, `CURL_CONNECT_TIMEOUT_CONFIG`, `CURL_MAX_TIME_CONFIG`, and `DEBUG_CURL_COMMAND_CONFIG`.
 
-## Disclaimer
-The author is not responsible for any data loss or file corruption that may occur as a result of using this script. **Use at your own risk and always back up important data.**
+| Variable                         | Default Value | Description                                                                                                                                                                                             |
+| :------------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SKIP_PREVIOUS_CONFIG`           | `"true"`      | If set to `"true"`, the script will skip processing any asset that is already part of a stack. Set to `"false"` to re-evaluate all assets (use with caution).                                                |
+| `CRITERIA_DEF_CONFIG`            | `()`          | **Not used by default for RAW+JPEG stacking.** Intended for advanced/custom stacking criteria if you modify the script's core logic. The default RAW+JPEG logic uses hardcoded filename-based pairing. |
+| `PARENT_PROMOTE_CONFIG`          | `""`          | Comma-separated keywords (e.g., `"COVER,PRIMARY"`). If a JPG's filename contains these, it gets a higher priority as a parent.                                                                             |
+| `ASSET_TYPE_FILTER_CONFIG`       | `"IMAGE"`     | Filters assets by type. Default is `"IMAGE"`. Set to empty to process all types (though RAW+JPEG logic is image-focused).                                                                                  |
+| `MAX_ASSETS_TO_PROCESS_CONFIG`   | `"0"`         | Limits the number of assets fetched. `0` processes all. Useful for testing.                                                                                                                             |
+| `DEBUG_SHOW_JSON_CONFIG`       | `"false"`     | If `"true"`, logs the full JSON data of individual assets being processed in `process_single_stack`.                                                                                                      |
+| `RAW_EXTENSIONS` (Array)         | `(...)`       | Internal list of RAW file extensions (e.g., "dng", "cr2") to identify as children.                                                                                                                         |
+
+
+### ▶️ Usage
+
+1.  **Edit the script**: Open the `bash_immich_stacker` script in a text editor.
+2.  **Configure**: Fill in the common variables (`API_KEY_CONFIG`, `API_URL_CONFIG`) and review stacker-specific ones.
+    * **Recommendation**: For the first run, set `DRY_RUN_CONFIG="true"` and `MAX_ASSETS_TO_PROCESS_CONFIG` to a small number (e.g., `100`) to test.
+3.  **Make executable**: `chmod +x bash_immich_stacker`
+4.  **Run**: `./bash_immich_stacker`
+
+The script will log its actions to `stderr`.
+
+### 📝 Important Notes for Stacker
+
+* The script specifically looks for a JPG/JPEG file and then searches for RAW files with the **exact same base filename** (e.g., `photo1` from `photo1.jpg` and `photo1.dng`).
+* If multiple RAW files match a single JPG, they will all be added as children to the JPG parent.
+* The `get_parent_sort_key_for_asset_json` function heavily prioritizes JPG/JPEG files as stack covers.
+
+---
+
+## 2. Immich Unstacker 💨
+
+This script is designed to dissolve all existing asset stacks in your Immich instance, making every asset an individual item again.
+
+### 🎯 Purpose
+
+To revert any stacking that has been done, either by the Auto-Stacker script or manually within Immich.
+
+### ✨ Key Features
+
+* **Comprehensive Unstacking**: Aims to find all stacks and unstack them.
+* **Stack ID Discovery**:
+    1.  Fetches a list of assets (optionally filtered by type, defaulting to IMAGE).
+    2.  For each JPG/JPEG asset, it queries the `/api/stacks?primaryAssetId={assetId}` endpoint.
+    3.  If a stack is found where the JPG is the primary asset, its Stack ID (the ID of the stack entity itself) is collected.
+* **Bulk Deletion**: Sends a single `DELETE /api/stacks` request with all collected unique Stack IDs.
+* **Asset Limit for Scan**: Allows limiting the number of assets scanned to find stack covers for testing.
+
+### ⚙️ Unstacker-Specific Configuration Variables (within the script)
+
+Refer to the "Common Configuration Variables" section above for `API_KEY_CONFIG`, `API_URL_CONFIG`, `DRY_RUN_CONFIG`, `CURL_CONNECT_TIMEOUT_CONFIG`, `CURL_MAX_TIME_CONFIG`, and `DEBUG_CURL_COMMAND_CONFIG`.
+
+| Variable                             | Default Value | Description                                                                                                                               |
+| :----------------------------------- | :------------ | :---------------------------------------------------------------------------------------------------------------------------------------- |
+| `MAX_ASSETS_TO_SCAN_CONFIG`          | `"50"`        | Limits the number of assets scanned to find stack covers. `0` means scan all. Useful for testing.                                           |
+| `ASSET_TYPE_FILTER_UNSTACKER_CONFIG` | `"IMAGE"`     | Filters the initial list of assets to scan for stack covers. Set to `"IMAGE"`, `"VIDEO"`, or empty to scan all types.                         |
+
+### ▶️ Usage
+
+1.  **Edit the script**: Open the `bash_immich_unstacker` script in a text editor.
+2.  **Configure**: Fill in the common variables (`API_KEY_CONFIG`, `API_URL_CONFIG`) and review unstacker-specific ones.
+    * **CRITICAL**: For the first run, ensure `DRY_RUN_CONFIG="true"` to prevent accidental unstacking.
+    * Set `MAX_ASSETS_TO_SCAN_CONFIG` to a small number for initial testing if desired.
+3.  **Make executable**: `chmod +x bash_immich_unstacker`
+4.  **Run**: `./bash_immich_unstacker`
+
+The script will log its actions to `stderr`.
+
+### 📝 Important Notes for Unstacker
+
+* The script relies on the `GET /api/stacks?primaryAssetId={assetId}` endpoint returning the actual Stack Entity ID if the queried asset is a stack cover.
+* It only checks JPG/JPEG files as potential stack covers by default (due to `ASSET_TYPE_FILTER_UNSTACKER_CONFIG`).
+
+---
+
+## 📜 License
+
+MIT License
+
+Copyright (c) 2024 [Your Name or Alias - Or leave this generic if preferred]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+Good luck, and use these scripts responsibly! 🚀

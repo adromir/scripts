@@ -1,80 +1,164 @@
-# PowerShell EXIF Geotagging Script with Dawarich and Photon (`geotag_media.ps1`)
+# 🌍 EXIF Geotag Media Script PowerShell
 
-## Purpose
+This PowerShell script is designed to add or update GPS coordinates and location information (country, city, state, country code) to image and MP4 files within a selected folder. It utilizes external APIs (Dawarich and Photon) for geocoding and `exiftool` for writing metadata. The script features a graphical user interface (GUI) for configuration and selecting the folder to process. Progress is displayed in the console.
 
-This PowerShell script automates the process of adding or updating location-based metadata (GPS coordinates, and for images: City, Country, Country Code) to image and MP4 video files within a specified folder. It retrieves missing location data by:
+## ✨ Key Features
 
-1.  Reading the creation date from the file's existing metadata.
-2.  Querying the Dawarich API based on the timestamp to find Geolocation for a Media File.
-3.  Optionally querying a secondary reverse geocoding API (referred to as "Photon API") if data is missing from the primary API or if configured to always do so (only affects image files).
-4.  Writing the retrieved data back to the files using the powerful `exiftool` utility.
-5.  Providing a summary at the end, including lists of files that were skipped and why.
+* **📁 Folder-Based Processing:** Selects a folder and processes all supported media files within it.
+* **🖼️ Image Support:** Updates GPS and location data (country, city, state, country code) for common image formats (JPG, PNG, TIFF, HEIC, etc.).
+    * Supports reading and converting GPS coordinates from sexagesimal format (degrees, minutes, seconds) to decimal degrees.
+    * Uses existing GPS data in the image to bypass the Dawarich API and directly query Photon for location details.
+* **📹 MP4 Support:** Updates *only* GPS coordinates (latitude, longitude, altitude) for MP4 files.
+    * Country, city, state, or country code are **not** written to MP4 files.
+    * Uses existing GPS data in the video to bypass the Dawarich API.
+* **⚙️ Configurable APIs:**
+    * **Dawarich API (Primary):** Used to retrieve GPS points based on the file's creation date if no GPS data is present.
+    * **Photon API (Secondary):** Used for reverse geocoding (GPS to location details like country, city, state) for images. Can optionally always be queried to overwrite Dawarich location details or supplement missing details.
+* **Overwrite:** Option to overwrite existing GPS and location data in files.
+* **GUI-Based:**
+    * A main window to start processing and access settings.
+    * A separate settings window for configuring API URLs, keys, time windows, and the path to `exiftool`.
+* **💾 Configuration File:** Settings can be saved and loaded from a `config.json` file in the script directory.
+* **📝 Progress and Logging:**
+    * Detailed progress display in the PowerShell console using `Write-Progress`.
+    * Status messages and warnings are output to the console.
+    * Lists of skipped or erroneous files are displayed at the end.
+* **🛠️ Exiftool Integration:** Uses the powerful `exiftool.exe` for reading and writing metadata.
 
-## Features
+## 📋 Requirements
 
-* **GUI Configuration:** Provides a graphical user interface (GUI) on startup to configure API endpoints, API keys, and processing options.
-* **Configuration File:** Optionally saves and loads settings to/from a `config.json` file located in the same directory as the script for persistent configuration. Handles backward compatibility with older config file key names.
-* **API Integration:**
-    * Queries a primary API ("Dawarich") for location data based on timestamps.
-    * Queries a secondary reverse geocoding API ("Photon") to find City, Country, and Country Code based on GPS coordinates (used for image files).
-* **Flexible Geocoding (for Images):**
-    * Option to only query the Photon API if location data is missing from the Dawarich API result.
-    * Option to *always* query the Photon API and prioritize its results for City/Country/Country Code for image files.
-* **EXIF/XMP Writing:**
-    * **Images (JPG, PNG, TIFF, etc.):** Writes GPS, Country, City, and Country Code tags directly into the image file *unless* an `.xmp` sidecar file already exists for that image. If a sidecar exists, it updates the sidecar instead. Uses the `-overwrite_original` flag when writing directly to images.
-    * **MP4 Videos:** Writes **only** the GPS coordinate tags (`GPSLatitude`, `GPSLongitude`, `GPSLatitudeRef`, `GPSLongitudeRef`) directly into the MP4 file using `-overwrite_original`. **The original MP4 file is modified.** Country, City, and Country Code are *not* written to MP4 files.
-* **Overwrite Option:** Includes an option in the GUI to force the script to process all files and overwrite existing GPS tags (and location tags for images), even if they already contain data.
-* **Tag Support:** Writes standard GPS tags (`GPSLatitude`, `GPSLongitude`, `GPSLatitudeRef`, `GPSLongitudeRef`). For images, it also writes `Country`, `City`, and the XMP tag `XMP-iptcCore:CountryCode`.
-* **Skipped File Reporting:** Outputs lists at the end detailing which files were skipped because they already had data (and overwrite was off) or because no suitable API data could be found.
+* **PowerShell:** Version 5.1 or higher. (WPF features require a compatible PowerShell version).
+* **Windows Operating System:** Due to WPF usage.
+* **ExifTool:** The `exiftool.exe` executable must either be:
+    * Present in the system PATH.
+    * The full path to `exiftool.exe` must be correctly specified in the script settings.
+    * You can download ExifTool from the [official ExifTool website](https://exiftool.org/).
+* **API Access (optional, but recommended):**
+    * An API key and URL for the Dawarich API (or a similar API that provides GPS points based on timestamps).
+    * The Photon API (defaults to `https://photon.komoot.io`) does not require a key but is important for reverse geocoding.
 
-## Prerequisites
+## 🚀 Setup
 
-1.  **PowerShell:** Version 5.1 or higher (Standard on Windows 10/11).
-2.  **exiftool:** You *must* download and install `exiftool` by Phil Harvey from the official website: <https://exiftool.org/>
-    * Place the `exiftool.exe` executable either:
-        * In a directory included in your system's `PATH` environment variable.
-        * Or, specify the full path to `exiftool.exe` in the script's configuration GUI or the `config.json` file.
+1.  **Download ExifTool:**
+    * Download `exiftool.exe` (the Windows Executable version) from [exiftool.org](https://exiftool.org/).
+    * Extract the file `exiftool(-k).exe` and rename it to `exiftool.exe`.
+    * Place `exiftool.exe` either in a directory included in your system's `PATH` environment variable (e.g., `C:\Windows`) or in any location and specify the full path in the script settings.
 
-## Configuration
+2.  **Configuration File (`config.json`):**
+    * On the first run without a `config.json` file in the same directory as the script, default values will be used.
+    * You can customize and save settings via the script's GUI. A `config.json` will then be created automatically.
+    * The file contains the following settings:
+        ```json
+        {
+          "dawarichApiUrl": "YOUR_DAWARICH_API_URL",
+          "dawarichApiKey": "YOUR_DAWARICH_API_KEY",
+          "photonApiUrl": "[https://photon.komoot.io](https://photon.komoot.io)",
+          "defaultTimeWindowSeconds": 60,
+          "exiftoolPath": "exiftool.exe", // Or the full path, e.g., "C:\\Path\\To\\exiftool.exe"
+          "overwriteExisting": false,
+          "alwaysQueryPhoton": false
+        }
+        ```
+    * **Important:** Replace `YOUR_DAWARICH_API_URL` and `YOUR_DAWARICH_API_KEY` with your actual API details if you intend to use the Dawarich API.
 
-The script uses a GUI for configuration on startup.
+## 🛠️ Usage
 
-1.  **Run the script.** The configuration window will appear.
-2.  **Fill in the details:**
-    * **Dawarich API URL:** The full URL (including endpoint) for your primary location data API.
-    * **Dawarich API Key:** The API key required for the Dawarich API.
-    * **Photon API URL:** The base URL for your Photon (Komoot) reverse geocoding instance (e.g., `https://photon.komoot.io`).
-    * **API Time Window (seconds):** How many seconds before and after the file's creation time to search in the Dawarich API if an exact timestamp match isn't found.
-    * **Exiftool Path:** The path to `exiftool.exe`. Leave as `exiftool.exe` if it's in your system PATH, otherwise provide the full path.
-3.  **Select Options:**
-    * **Overwrite existing...:** Check this box if you want the script to fetch data and write tags even if the file already has GPS/location information. If unchecked, files with existing data will be skipped. (Applies to GPS for MP4s, all geo tags for images).
-    * **Always query Photon API...:** Check this box to force the script to query the Photon API for *every image file* that has GPS coordinates. If checked, the location details (City, Country, Country Code) found by Photon will replace any details returned by the Dawarich API for images. If unchecked, Photon is only queried for images if the Dawarich API result is missing City, Country, or Country Code. (This option does not affect MP4 files).
-    * **Save these settings...:** Check this box *before* clicking OK if you want to save the current settings to `config.json` in the script's directory for the next run.
-4.  **Click OK** to proceed or **Cancel** to exit.
+1.  **Starting the Script:**
+    * Open a PowerShell console.
+    * Navigate to the directory where you saved `geotag_media.ps1`.
+    * Execute the script: `.\geotag_media.ps1`
+    * **Recommendation:** For the best compatibility with WPF windows, start PowerShell with the `-STA` switch:
+        `powershell.exe -STA -File ".\geotag_media.ps1"`
 
-**`config.json` File:**
+2.  **Main Window:**
+    * After starting, the main window will appear.
+    * <img src="https://img.icons8.com/ios-filled/50/000000/folder-invoices.png" alt="Folder Icon" width="25"/> **Select Folder & Start Processing:** Click this button to open the folder selection dialog. After selecting a folder, media file processing will begin.
+    * <img src="https://img.icons8.com/ios-filled/50/000000/settings.png" alt="Settings Icon" width="25"/> **Settings:** Opens the configuration window where you can adjust API details, paths, and behavior options.
+    * A notice will be displayed if `config.json` was not found and default settings are being used.
 
-* If you check "Save these settings", a file named `config.json` will be created or updated in the same directory as the script.
-* On subsequent runs, the script will load settings from this file automatically, pre-populating the GUI.
-* **Security Warning:** This file stores your API keys in plain text. Ensure the file and the directory are appropriately secured.
+3.  **Settings Window:**
+    * **Dawarich API URL/Key:** Enter the URL and API key for your primary geocoding API here.
+    * **Photon API URL:** The URL for the Photon API (default is `https://photon.komoot.io`).
+    * **API Time Window (sec):** The time window (in seconds) before and after a file's creation date used for querying the Dawarich API.
+    * **Exiftool Path:** The path to `exiftool.exe`. If `exiftool.exe` is in the system PATH, `exiftool.exe` is sufficient. Otherwise, provide the full path (e.g., `C:\Tools\exiftool.exe`).
+    * **Overwrite existing GPS/Location data in files:** If checked, existing GPS and location data in files will be overwritten. Otherwise, only files without this data will be processed.
+    * **Always query Photon API:** If checked, Photon will always be queried for images, even if Dawarich provided location data. Photon data will then take precedence for fields it provides. Existing data (from Dawarich or originally in the image) will be preserved for fields for which Photon provides no data.
+    * **Save these settings to config.json:** Check this box and click "OK" to save the current settings to the `config.json` file in the script directory.
 
-## Usage
+4.  **Processing and Console Output:**
+    * After selecting a folder and starting processing, progress information will be displayed in the PowerShell console.
+    * `Write-Progress` shows an overall progress bar.
+    * Detailed status messages for each file and API query are output with timestamps.
+    * Warnings (e.g., if an API finds no data) are highlighted in yellow.
+    * Errors are highlighted in red.
+    * At the end of processing, a summary is displayed, including the number of files scanned, updated, and with errors, as well as lists of skipped files.
+    * Processing can be cancelled at any time with **Ctrl+C** in the console.
 
-1.  Save the script to a file (e.g., `geotag_media.ps1`).
-2.  Open a PowerShell terminal.
-3.  Navigate to the directory where you saved the script.
-4.  Run the script: `.\geotag_media.ps1`
-5.  Configure the settings in the GUI that appears and click OK.
-6.  Select the target folder containing your media files when prompted by the folder browser dialog.
-7.  The script will process the files and output status messages to the console.
-8.  At the end, a summary will be displayed, including counts and lists of any skipped files.
+## 📡 Technical Details
 
-## Important Notes
+### APIs Used
 
-* **BACKUP YOUR FILES!** The script uses `exiftool -overwrite_original` when writing metadata directly into **both MP4 files and image files** (if no sidecar exists for the image). This modifies the original files directly. While generally safe, **it is strongly recommended to back up your media files before running this script.**
-* **MP4 Files:** The script *modifies MP4 files directly* to add/update GPS tags. It no longer uses XMP sidecars for MP4s.
-* **Large Files:** Processing large files can take time. The script includes a warning for files over 200MB.
-* **API Limits:** Be mindful of any rate limits or usage quotas for the APIs you are using. Processing a large number of files may trigger limits.
+* **Dawarich API (Example):** Serves as a placeholder for an API that returns GPS points based on a time window (start and end date/time). The script expects a JSON response containing objects with at least `latitude`, `longitude`, `timestamp`, `country`, `city`, and `country_code`.
+* **Photon API ([photon.komoot.io](https://photon.komoot.io/)):** An open-source geocoding API based on OpenStreetMap data. It is used for reverse geocoding (converting GPS coordinates to address data).
+    * The script extracts `country`, `city`, `state` (state/province), and `countrycode`.
 
-## Disclaimer
-The author is not responsible for any data loss or file corruption that may occur as a result of using this script. **Use at your own risk and always back up important data.**
+### Metadata Tags
+
+**For Images:**
+The script writes the following tags using `exiftool`:
+* `-GPSLatitude` / `-GPSLatitudeRef`
+* `-GPSLongitude` / `-GPSLongitudeRef`
+* `-XMP:GPSLatitude` / `-XMP:GPSLongitude` (decimal values)
+* `-Country` (Standard EXIF/IPTC)
+* `-City` (Standard EXIF/IPTC)
+* `-XMP-photoshop:State` (For state/province)
+* `-XMP-iptcCore:CountryCode`
+
+**For MP4 Files:**
+The script writes the following tags, preferred by Google Photos:
+* `-UserData:GPSCoordinates` (Format: `+DD.DDDD, +DDD.DDDD, +ALTITUDEm`)
+* `-GPSAltitude` (Set to 0 by default)
+* `-GPSAltitudeRef` (Set to 0 = Above Sea Level by default)
+* The `-Rotation` information is **not** modified.
+
+### Handling Existing GPS Data
+
+* **Images:**
+    1.  The script first attempts to read `Composite:GPSLatitude` and `Composite:GPSLongitude` (often provided by exiftool as decimal values).
+    2.  If unsuccessful, it tries to read the standard EXIF tags `GPSLatitude`, `GPSLongitude`, `GPSLatitudeRef`, `GPSLongitudeRef`.
+    3.  If these standard tags are in sexagesimal format (e.g., `50 deg 30' 15.12" N`), they are converted to decimal degrees using the `Convert-SexagesimalToDecimal` function.
+    4.  If valid decimal GPS coordinates can be extracted from the image, the Dawarich API is skipped. The Photon API is then queried with these coordinates for location details (depending on `alwaysQueryPhoton` and the presence of location details).
+* **MP4 Files:**
+    1.  The script attempts to read and parse the `UserData:GPSCoordinates` tag.
+    2.  If valid GPS coordinates are present, the Dawarich API is skipped.
+
+### Sexagesimal to Decimal Conversion
+
+The `Convert-SexagesimalToDecimal` function parses GPS strings that may contain degrees (`deg` or `°`), minutes (`'`), and seconds (`"`) and converts them to decimal degrees, taking into account the hemisphere (N, S, E, W).
+
+## ⚠️ Important Notes & Troubleshooting
+
+* **ExifTool is essential:** Ensure `exiftool.exe` is correctly configured and accessible to the script.
+* **API Keys:** A valid API key is required for the Dawarich API (or your alternative API).
+* **Internet Connection:** An active internet connection is needed for API queries.
+* **File Permissions:** The script requires write permissions for the media files to update metadata.
+* **Large Files:** Processing very large files can take some time, especially reading and writing metadata.
+* **Backups:** The script overwrites original files (using the `-overwrite_original` option of exiftool). **It is strongly recommended to create backups of your media files before running the script!**
+* **PowerShell Execution Policy:** You may need to adjust the execution policy for PowerShell scripts if you receive an error related to script execution. You can do this with `Set-ExecutionPolicy RemoteSigned` (as administrator). Be aware of the security implications.
+* **STA Mode for WPF:** For smooth operation of the WPF windows (Main GUI, Configuration GUI), the script should ideally be started in an STA thread: `powershell.exe -STA -File ".\geotag_media.ps1"`.
+
+## ⚖️ Disclaimer
+
+This script is provided "as is" without any warranty, express or implied. Use of the script is at your own risk.
+
+The author assumes no liability for any direct or indirect damages that may arise from the use of this script, including, but not limited to, data loss, file corruption, or system instability.
+
+It is the sole responsibility of the user to ensure that adequate backups of all relevant data are made before using the script. The user is responsible for verifying and complying with all applicable laws and license terms for the APIs and software (like exiftool) used.
+
+By using this script, you agree to these terms.
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+MIT LicenseCopyright (c) 2025 Permission is hereby granted, free of charge, to any person obtaining a copyof this software and associated documentation files (the "Software"), to dealin the Software without restriction, including without limitation the rightsto use, copy, modify, merge, publish, distribute, sublicense, and/or sellcopies of the Software, and to permit persons to whom the Software isfurnished to do so, subject to the following conditions:The above copyright notice and this permission notice shall be included in allcopies or substantial portions of the Software.THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS ORIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THEAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHERLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
