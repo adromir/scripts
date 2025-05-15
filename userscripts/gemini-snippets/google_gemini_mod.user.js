@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Gemini Mod (Toolbar & Download)
 // @namespace    http://tampermonkey.net/
-// @version      0.1.1
+// @version      0.0.2
 // @description  Enhances Google Gemini with a toolbar for snippets and canvas content download.
 // @author       Adromir
 // @match        https://gemini.google.com/*
@@ -20,7 +20,6 @@
     const DOWNLOAD_BUTTON_LABEL = "💾 Download Canvas as File";
 
     // --- Embedded CSS ---
-    // Note: GM_addStyle will be used to inject this CSS.
     const embeddedCSS = `
         #gemini-snippet-toolbar-userscript { /* Changed ID to avoid potential conflicts */
           position: fixed !important; top: 0 !important; left: 50% !important; /* Centered */
@@ -80,7 +79,6 @@
             console.log("Gemini Mod Userscript: Custom CSS injected successfully.");
         } catch (error) {
             console.error("Gemini Mod Userscript: Failed to inject custom CSS:", error);
-            // Fallback if GM_addStyle is not available or fails
             const styleId = 'gemini-mod-userscript-styles';
             if (document.getElementById(styleId)) return;
             const style = document.createElement('style');
@@ -117,31 +115,19 @@
 
     // --- Helper Functions ---
 
-    /**
-     * Displays a message to the user (console and alert).
-     * @param {string} message - The message to display.
-     * @param {boolean} isError - True if it's an error message.
-     */
     function displayUserscriptMessage(message, isError = true) {
         const prefix = "Gemini Mod Userscript: ";
-        if (isError) {
-            console.error(prefix + message);
-        } else {
-            console.log(prefix + message);
-        }
-        alert(prefix + message); // Simple alert for now
+        if (isError) console.error(prefix + message);
+        else console.log(prefix + message);
+        alert(prefix + message);
     }
 
-    /**
-     * Moves the cursor to the end of the provided element's content.
-     * @param {Element} element - The contenteditable element or paragraph within it.
-     */
     function moveCursorToEnd(element) {
         try {
             const range = document.createRange();
             const sel = window.getSelection();
             range.selectNodeContents(element);
-            range.collapse(false); // false collapses to the end
+            range.collapse(false);
             sel.removeAllRanges();
             sel.addRange(range);
             element.focus();
@@ -150,16 +136,8 @@
         }
     }
 
-    /**
-     * Finds the target Gemini input element.
-     * @returns {Element | null} The found input element or null.
-     */
     function findTargetInputElement() {
-        const selectorsToTry = [
-            '.ql-editor p',
-            '.ql-editor',
-            'div[contenteditable="true"]'
-        ];
+        const selectorsToTry = ['.ql-editor p', '.ql-editor', 'div[contenteditable="true"]'];
         for (const selector of selectorsToTry) {
             const element = document.querySelector(selector);
             if (element) {
@@ -173,18 +151,12 @@
         return null;
     }
 
-    /**
-     * Inserts text into the Gemini input field, always appending.
-     * @param {string} textToInsert - The text snippet to insert.
-     */
     function insertSnippetText(textToInsert) {
         let targetInputElement = findTargetInputElement();
         if (!targetInputElement) {
-            console.error("Gemini Mod Userscript: Could not find the Gemini input field for snippet insertion.");
             displayUserscriptMessage("Could not find Gemini input field.");
             return;
         }
-
         let actualInsertionPoint = targetInputElement;
         if (targetInputElement.classList.contains('ql-editor')) {
             let p = targetInputElement.querySelector('p');
@@ -194,7 +166,6 @@
             }
             actualInsertionPoint = p;
         }
-
         actualInsertionPoint.focus();
         setTimeout(() => {
             moveCursorToEnd(actualInsertionPoint);
@@ -204,16 +175,11 @@
             } catch (e) {
                 console.warn("Gemini Mod Userscript: execCommand('insertText') threw an error:", e);
             }
-
             if (!insertedViaExec) {
-                console.warn("Gemini Mod Userscript: execCommand('insertText') failed. Using fallback append.");
-                if (actualInsertionPoint.innerHTML === '<br>') {
-                    actualInsertionPoint.innerHTML = '';
-                }
+                if (actualInsertionPoint.innerHTML === '<br>') actualInsertionPoint.innerHTML = '';
                 actualInsertionPoint.textContent += textToInsert;
                 moveCursorToEnd(actualInsertionPoint);
             }
-
             const editorToDispatchOn = document.querySelector('.ql-editor') || targetInputElement;
             if (editorToDispatchOn) {
                 editorToDispatchOn.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
@@ -223,29 +189,18 @@
         }, 50);
     }
 
-    /**
-     * Handles the paste button click. Reads from clipboard and inserts text.
-     */
     async function handlePasteButtonClick() {
         try {
             if (!navigator.clipboard || !navigator.clipboard.readText) {
-                console.warn("Gemini Mod Userscript: Clipboard API not available or readText not supported.");
                 displayUserscriptMessage("Clipboard access is not available or not permitted.");
                 return;
             }
             const text = await navigator.clipboard.readText();
-            if (text) {
-                insertSnippetText(text);
-            } else {
-                console.log("Gemini Mod Userscript: Clipboard is empty.");
-            }
+            if (text) insertSnippetText(text);
+            else console.log("Gemini Mod Userscript: Clipboard is empty.");
         } catch (err) {
             console.error('Gemini Mod Userscript: Failed to read clipboard contents: ', err);
-            if (err.name === 'NotAllowedError') {
-                displayUserscriptMessage('Permission to read clipboard was denied.');
-            } else {
-                displayUserscriptMessage('Failed to paste from clipboard. See console.');
-            }
+            displayUserscriptMessage(err.name === 'NotAllowedError' ? 'Permission to read clipboard was denied.' : 'Failed to paste from clipboard. See console.');
         }
     }
 
@@ -255,38 +210,111 @@
     const GEMINI_CANVAS_TITLE_TEXT_SELECTOR = "h2.title-text.gds-title-s";
     const GEMINI_CANVAS_TITLE_BAR_SELECTOR = "div.toolbar.has-title";
     const GEMINI_CANVAS_COPY_BUTTON_SELECTOR = "code-immersive-panel.ng-star-inserted copy-button.ng-star-inserted button.copy-button";
+    
+    // Regex for common extensions, used in sanitizeFilename
+    const COMMON_EXTENSIONS_REGEX = /\.(js|html|css|py|md|txt|json|xml|yaml|sh|bat|ps1|java|c|cpp|h|hpp|cs|go|rb|php|swift|kt|kts|dart|rs|lua|pl|sql|r|ipynb)$/i;
+
 
     /**
      * Sanitizes a string to be used as a valid filename.
-     * @param {string} name - The original filename string.
-     * @param {string} defaultExtension - The default extension if none is found.
+     * It tries to extract a filename-like part from the input string first.
+     * If the extracted part is already a valid filename, it's used directly.
+     * Otherwise, the extracted part (or the whole input if no specific part is found) is sanitized.
+     * @param {string} name - The original string (e.g., canvas title).
+     * @param {string} defaultExtension - The default extension if none is found or extracted.
      * @returns {string} A sanitized filename.
      */
     function sanitizeFilename(name, defaultExtension = "txt") {
-        if (!name || typeof name !== 'string') name = 'downloaded_content';
-        let baseName = name;
-        let extension = defaultExtension;
-        const commonExtensionsRegex = /\.(js|html|css|py|md|txt|json|xml|yaml|sh|bat|ps1|java|c|cpp|h|hpp|cs|go|rb|php|swift|kt|kts|dart|rs|lua|pl|sql|r|ipynb)$/i;
-        const match = name.match(commonExtensionsRegex);
-        if (match && match[1]) {
-            extension = match[1].toLowerCase();
-            baseName = name.substring(0, name.lastIndexOf(match[0]));
+        if (!name || typeof name !== 'string' || name.trim() === "") {
+            console.log(`Gemini Mod Userscript: Input name invalid or empty, defaulting to "downloaded_content.${defaultExtension}".`);
+            return `downloaded_content.${defaultExtension}`;
         }
-        let sanitizedBase = baseName.replace(/[<>:"/\\|?*~]+/g, '_')
-                                   .replace(/\s+/g, '_')
-                                   .replace(/__+/g, '_')
-                                   .replace(/^_+|_+$/g, '')
-                                   .replace(/^\.+|\.+$/g, '')
-                                   .trim();
-        if (!sanitizedBase) sanitizedBase = 'downloaded_content';
-        return `${sanitizedBase}.${extension}`;
+
+        let trimmedName = name.trim();
+        
+        // Regex to find a potential filename pattern (alphanumeric, dots, hyphens, underscores) ending with a known extension.
+        // This tries to capture the "most likely" filename if the title contains more text.
+        const filenamePatternRegex = /([\w.-]+?\.(?:js|html|css|py|md|txt|json|xml|yaml|sh|bat|ps1|java|c|cpp|h|hpp|cs|go|rb|php|swift|kt|kts|dart|rs|lua|pl|sql|r|ipynb))\b/gi;
+        
+        let candidateFilename = trimmedName; // Default to the whole trimmed name
+        let potentialFilenames = [];
+        let match;
+        while ((match = filenamePatternRegex.exec(trimmedName)) !== null) {
+            potentialFilenames.push(match[1]);
+        }
+
+        if (potentialFilenames.length > 0) {
+            // If multiple patterns are found (e.g., "file1.js and file2.txt"), use the last one.
+            candidateFilename = potentialFilenames[potentialFilenames.length - 1];
+            console.log(`Gemini Mod Userscript: Extracted candidate filename: "${candidateFilename}" from title: "${trimmedName}"`);
+        } else {
+            console.log(`Gemini Mod Userscript: No specific filename pattern with known extension found in title: "${trimmedName}". Using whole title as base.`);
+        }
+
+        // Now, check if this candidateFilename is "valid as is".
+        // "Valid as is" means: no invalid characters, and if it has an extension, it's a known one.
+        // eslint-disable-next-line no-control-regex
+        const invalidCharsRegex = /[<>:"/\\|?*\x00-\x1F]/g;
+        const hasInvalidChars = invalidCharsRegex.test(candidateFilename);
+        
+        const extMatch = candidateFilename.match(COMMON_EXTENSIONS_REGEX);
+
+        if (!hasInvalidChars && extMatch) {
+            // Candidate has a known extension and no invalid characters.
+            // Further check: ensure the base part (before extension) is also clean of invalid chars.
+            // This is slightly redundant as we tested candidateFilename, but good for sanity.
+            const basePartOfCandidate = candidateFilename.substring(0, candidateFilename.lastIndexOf(extMatch[0]));
+            if (!invalidCharsRegex.test(basePartOfCandidate)) {
+                 console.log(`Gemini Mod Userscript: Candidate filename "${candidateFilename}" considered valid and used as is.`);
+                 return candidateFilename;
+            }
+        }
+        
+        // If not returned "as is", proceed to sanitize the candidateFilename (or the original trimmedName if no candidate was extracted)
+        console.log(`Gemini Mod Userscript: Candidate filename "${candidateFilename}" requires sanitization or formatting.`);
+
+        let baseToSanitize = candidateFilename;
+        let determinedExtension = defaultExtension;
+
+        const currentExtMatch = candidateFilename.match(COMMON_EXTENSIONS_REGEX);
+        if (currentExtMatch && currentExtMatch[1]) {
+            determinedExtension = currentExtMatch[1].toLowerCase();
+            baseToSanitize = candidateFilename.substring(0, candidateFilename.lastIndexOf(currentExtMatch[0]));
+        }
+        // If baseToSanitize became empty after stripping extension (e.g. candidate was just ".js")
+        if (baseToSanitize.trim() === "" && candidateFilename !== "") {
+             baseToSanitize = "downloaded_content"; // Or try to derive from original trimmedName's non-ext part
+        } else if (baseToSanitize.trim() === "") {
+            baseToSanitize = "downloaded_content";
+        }
+
+
+        let sanitizedBase = baseToSanitize
+            .replace(invalidCharsRegex, '_') // Remove invalid characters
+            .replace(/\s+/g, '_')           // Replace spaces with underscores
+            .replace(/__+/g, '_')          // Collapse multiple underscores
+            .replace(/^[_.-]+|[_.-]+$/g, '');// Remove leading/trailing underscores, dots, or hyphens
+
+        // If after all this, the base is empty (e.g., title was just "///" or "...")
+        if (!sanitizedBase) {
+            sanitizedBase = 'downloaded_content';
+        }
+
+        // Ensure max length for the base part, leaving room for dot and extension
+        const maxBaseLength = 250 - (determinedExtension.length + 1);
+        if (sanitizedBase.length > maxBaseLength) {
+            sanitizedBase = sanitizedBase.substring(0, maxBaseLength);
+            // Clean up again if truncation left a trailing underscore
+            sanitizedBase = sanitizedBase.replace(/_+$/, ''); 
+        }
+         if (!sanitizedBase) { // If truncation made it empty
+            sanitizedBase = 'downloaded_content';
+        }
+
+        return `${sanitizedBase}.${determinedExtension}`;
     }
 
-    /**
-     * Creates and triggers a download for the given text content.
-     * @param {string} filename - The desired filename.
-     * @param {string} content - The text content to download.
-     */
+
     function triggerDownload(filename, content) {
         try {
             const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -305,9 +333,6 @@
         }
     }
 
-    /**
-     * Handles the click of the global canvas download button.
-     */
     async function handleGlobalCanvasDownload() {
         const canvasElement = document.querySelector(GEMINI_CANVAS_WRAPPER_SELECTOR);
         if (!canvasElement) {
@@ -337,7 +362,7 @@
                     if (titleBar) titleTextElement = titleBar.querySelector(GEMINI_CANVAS_TITLE_TEXT_SELECTOR);
                 }
                 const canvasTitle = titleTextElement ? (titleTextElement.textContent || "Untitled Canvas").trim() : "Untitled Canvas";
-                const filename = sanitizeFilename(canvasTitle);
+                const filename = sanitizeFilename(canvasTitle); // Uses the new sanitizeFilename logic
                 triggerDownload(filename, clipboardContent);
             } catch (err) {
                 console.error('Gemini Mod Userscript: Error reading from clipboard:', err);
@@ -346,16 +371,12 @@
         }, 300);
     }
 
-    /**
-     * Creates the snippet toolbar and adds it to the page.
-     */
     function createToolbar() {
-        const toolbarId = 'gemini-snippet-toolbar-userscript'; // Use userscript-specific ID
+        const toolbarId = 'gemini-snippet-toolbar-userscript';
         if (document.getElementById(toolbarId)) {
             console.log("Gemini Mod Userscript: Toolbar already exists.");
             return;
         }
-        console.log("Gemini Mod Userscript: Initializing toolbar...");
         const toolbar = document.createElement('div');
         toolbar.id = toolbarId;
 
@@ -395,7 +416,7 @@
         });
 
         const spacer = document.createElement('div');
-        spacer.className = 'userscript-toolbar-spacer'; // Use renamed class
+        spacer.className = 'userscript-toolbar-spacer';
         toolbar.appendChild(spacer);
 
         const pasteButton = document.createElement('button');
@@ -414,29 +435,15 @@
         console.log("Gemini Mod Userscript: Toolbar inserted.");
     }
 
-    /**
-     * Handles dark mode. For a userscript, this is mostly about adapting to the site's
-     * existing dark mode, if necessary for the toolbar.
-     * The current toolbar CSS is dark-themed by default.
-     */
     function handleDarkModeForUserscript() {
-        // Gemini handles its own dark mode. Our toolbar is styled with a dark theme.
-        // If specific adjustments were needed based on Gemini's dark mode class on <body>,
-        // one could use a MutationObserver to watch document.body.classList.
         console.log("Gemini Mod Userscript: Dark mode handling is passive (toolbar is dark by default).");
-        // Example: Check if Gemini uses a specific class for dark mode on the body
-        // if (document.body.classList.contains('gemini-dark-mode-class')) {
-        //    // Potentially apply additional styles to the toolbar if needed
-        // }
     }
 
     // --- Initialization Logic ---
     function init() {
         console.log("Gemini Mod Userscript: Initializing...");
         injectCustomCSS();
-        // Wait for the page to be more likely settled before adding the toolbar
-        // Especially since Gemini is a complex web application.
-        const M_INITIALIZATION_DELAY = 1500; // Increased delay
+        const M_INITIALIZATION_DELAY = 1500;
         setTimeout(() => {
             try {
                 createToolbar();
@@ -449,7 +456,6 @@
         }, M_INITIALIZATION_DELAY);
     }
 
-    // Run the script after the DOM is fully loaded or if it's already loaded.
     if (document.readyState === 'loading') {
         window.addEventListener('DOMContentLoaded', init);
     } else {
