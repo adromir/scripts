@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Gemini Mod (Toolbar & Download)
 // @namespace    http://tampermonkey.net/
-// @version      0.0.3
+// @version      0.0.4
 // @description  Enhances Google Gemini with a toolbar for snippets and canvas content download.
 // @author       Adromir
 // @match        https://gemini.google.com/*
@@ -21,17 +21,17 @@
 
     // --- Embedded CSS ---
     const embeddedCSS = `
-        #gemini-snippet-toolbar-userscript { /* Changed ID to avoid potential conflicts */
-          position: fixed !important; top: 0 !important; left: 50% !important; /* Centered */
-          transform: translateX(-50%) !important; /* Centering trick */
-          width: auto !important; /* Auto width based on content */
-          max-width: 80% !important; /* Max width to prevent overflow on small screens */
+        #gemini-snippet-toolbar-userscript { 
+          position: fixed !important; top: 0 !important; left: 50% !important; 
+          transform: translateX(-50%) !important; 
+          width: auto !important; 
+          max-width: 80% !important; 
           padding: 10px 15px !important; 
-          z-index: 999999 !important; /* Higher z-index */
+          z-index: 999999 !important; 
           display: flex !important; flex-wrap: wrap !important;
           gap: 8px !important; align-items: center !important; font-family: 'Roboto', 'Arial', sans-serif !important;
           box-sizing: border-box !important; background-color: rgba(40, 42, 44, 0.95) !important;
-          border-radius: 0 0 16px 16px !important; /* Rounded bottom corners */
+          border-radius: 0 0 16px 16px !important; 
           box-shadow: 0 4px 12px rgba(0,0,0,0.25);
         }
         #gemini-snippet-toolbar-userscript button, 
@@ -65,7 +65,7 @@
           background-color: #5f6368 !important;
           transform: scale(0.98) !important;
         }
-        .userscript-toolbar-spacer { /* Renamed spacer class */
+        .userscript-toolbar-spacer { 
             margin-left: auto !important;
         }
     `;
@@ -200,28 +200,24 @@
 
     // --- Canvas Download Feature ---
     const DEFAULT_DOWNLOAD_EXTENSION = "txt";
-    const GEMINI_CANVAS_WRAPPER_SELECTOR = "immersive-panel.ng-tns-c1436378242-1.ng-trigger.ng-trigger-immersivePanelTransitions.ng-star-inserted";
-    const GEMINI_CANVAS_TITLE_TEXT_SELECTOR = "h2.title-text.gds-title-s";
-    const GEMINI_CANVAS_TITLE_BAR_SELECTOR = "div.toolbar.has-title";
-    const GEMINI_CANVAS_COPY_BUTTON_SELECTOR = "code-immersive-panel.ng-star-inserted copy-button.ng-star-inserted button.copy-button";
+    // This selector now directly targets the title h2 element within an active immersive panel.
+    const GEMINI_CANVAS_TITLE_TEXT_SELECTOR = "immersive-panel.ng-tns-c1436378242-1.ng-trigger.ng-trigger-immersivePanelTransitions.ng-star-inserted code-immersive-panel > toolbar > div > div:nth-child(1) > h2.title-text.gds-title-s.ng-star-inserted"; 
+    
+    // This selector is now relative to the toolbar element that will be found via the titleTextElement.
+    const GEMINI_COPY_BUTTON_IN_TOOLBAR_SELECTOR = "copy-button.ng-star-inserted button.copy-button.icon-button";
     
     // eslint-disable-next-line no-control-regex
     const INVALID_FILENAME_CHARS_REGEX = /[<>:"/\\|?*\x00-\x1F]/g;
     const RESERVED_WINDOWS_NAMES_REGEX = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
-    // General pattern for "basename.extension" where extension is 1-8 alphanumeric chars.
-    // It's intentionally broad for the extension part.
-    // Basename can include spaces, dots (not as last char), hyphens, underscores.
     const FILENAME_WITH_EXT_REGEX = /^(.+)\.([a-zA-Z0-9]{1,8})$/;
-    // For finding such a pattern as a substring (non-greedy base, ensuring it's followed by a word boundary or end of string)
     const SUBSTRING_FILENAME_REGEX = /([\w\s.,\-()[\\]{}'!~@#$%^&+=]+?\.([a-zA-Z0-9]{1,8}))(?=\s|$|[,.;:!?])/g;
-
 
     function ensureLength(filename, maxLength = 255) {
         if (filename.length <= maxLength) {
             return filename;
         }
         const dotIndex = filename.lastIndexOf('.');
-        if (dotIndex === -1 || dotIndex < filename.length - 10 ) { // Arbitrary: if ext is likely > 8 chars or no dot
+        if (dotIndex === -1 || dotIndex < filename.length - 10 ) { 
             return filename.substring(0, maxLength);
         }
         const base = filename.substring(0, dotIndex);
@@ -235,65 +231,45 @@
 
     function sanitizeBasename(baseName) {
         if (typeof baseName !== 'string' || baseName.trim() === "") return "downloaded_document";
-        
         let sanitized = baseName.trim()
             .replace(INVALID_FILENAME_CHARS_REGEX, '_')
             .replace(/\s+/g, '_')
             .replace(/__+/g, '_')
-            .replace(/^[_.-]+|[_.-]+$/g, ''); // Remove leading/trailing problematic chars
-
+            .replace(/^[_.-]+|[_.-]+$/g, '');
         if (!sanitized || RESERVED_WINDOWS_NAMES_REGEX.test(sanitized)) {
-            sanitized = `_${sanitized || "file"}_`; // Ensure it's not empty and not reserved
-            // Re-sanitize after modification
+            sanitized = `_${sanitized || "file"}_`;
             sanitized = sanitized.replace(INVALID_FILENAME_CHARS_REGEX, '_').replace(/\s+/g, '_').replace(/__+/g, '_').replace(/^[_.-]+|[_.-]+$/g, '');
         }
-        return sanitized || "downloaded_document"; // Final fallback if sanitization results in empty string
+        return sanitized || "downloaded_document";
     }
 
-    /**
-     * Determines the filename for download based on the canvas title,
-     * prioritizing a `basename.ext` structure if found.
-     * @param {string} title - The original string (e.g., canvas title).
-     * @param {string} defaultExtension - The default extension if no structure is found.
-     * @returns {string} A processed filename.
-     */
     function determineFilename(title, defaultExtension = "txt") {
         const logPrefix = "Gemini Mod Userscript: determineFilename - ";
         if (!title || typeof title !== 'string' || title.trim() === "") {
             console.log(`${logPrefix}Input title invalid or empty, defaulting to "downloaded_document.${defaultExtension}".`);
             return ensureLength(`downloaded_document.${defaultExtension}`);
         }
-
         let trimmedTitle = title.trim();
         let baseNamePart = "";
         let extensionPart = "";
-
-        // Attempt 1: Check if the entire trimmedTitle matches "basename.ext"
         const fullTitleMatch = trimmedTitle.match(FILENAME_WITH_EXT_REGEX);
         if (fullTitleMatch) {
             const potentialBase = fullTitleMatch[1];
             const potentialExt = fullTitleMatch[2].toLowerCase();
-            // Check if the potentialBase itself is clean (or mostly clean)
-            if (!INVALID_FILENAME_CHARS_REGEX.test(potentialBase.replace(/\s/g, '_'))) { // Allow spaces for now, will be replaced
+            if (!INVALID_FILENAME_CHARS_REGEX.test(potentialBase.replace(/\s/g, '_'))) {
                 baseNamePart = potentialBase;
                 extensionPart = potentialExt;
                 console.log(`${logPrefix}Entire title "${trimmedTitle}" matches basename.ext. Base: "${baseNamePart}", Ext: "${extensionPart}"`);
             }
         }
-
-        // Attempt 2: If full title didn't match or base was invalid, find the last substring matching "basename.ext"
-        if (!extensionPart) { // Only if not already found from full title
+        if (!extensionPart) { 
             let lastMatch = null;
             let currentMatch;
-            // Reset regex lastIndex if it's global (it is due to /g)
             SUBSTRING_FILENAME_REGEX.lastIndex = 0; 
             while ((currentMatch = SUBSTRING_FILENAME_REGEX.exec(trimmedTitle)) !== null) {
                 lastMatch = currentMatch;
             }
-
             if (lastMatch) {
-                // lastMatch[1] is the full "basename.ext" substring
-                // lastMatch[2] is the extension part from that substring
                 const substringExtMatch = lastMatch[1].match(FILENAME_WITH_EXT_REGEX);
                 if (substringExtMatch) {
                     baseNamePart = substringExtMatch[1];
@@ -302,13 +278,10 @@
                 }
             }
         }
-
-        // Process based on what was found
-        if (extensionPart) { // An extension was identified either from full title or substring
+        if (extensionPart) { 
             const sanitizedBase = sanitizeBasename(baseNamePart);
             return ensureLength(`${sanitizedBase}.${extensionPart}`);
         } else {
-            // Fallback: No "basename.ext" structure found. Sanitize the whole title and use default extension.
             console.log(`${logPrefix}No basename.ext pattern found. Sanitizing full title "${trimmedTitle}" with default extension "${defaultExtension}".`);
             const sanitizedTitleBase = sanitizeBasename(trimmedTitle);
             return ensureLength(`${sanitizedTitleBase}.${defaultExtension}`);
@@ -334,17 +307,32 @@
     }
 
     async function handleGlobalCanvasDownload() {
-        const canvasElement = document.querySelector(GEMINI_CANVAS_WRAPPER_SELECTOR);
-        if (!canvasElement) {
+        const titleTextElement = document.querySelector(GEMINI_CANVAS_TITLE_TEXT_SELECTOR);
+        if (!titleTextElement) {
+            console.warn("Gemini Mod Userscript: No active canvas title found. Selector:", GEMINI_CANVAS_TITLE_TEXT_SELECTOR);
             displayUserscriptMessage("No active canvas found to download.");
             return;
         }
-        const copyButton = canvasElement.querySelector(GEMINI_CANVAS_COPY_BUTTON_SELECTOR);
-        if (!copyButton) {
-            displayUserscriptMessage("Could not find 'Copy to Clipboard' button in canvas.");
+        console.log("Gemini Mod Userscript: Found canvas title element:", titleTextElement);
+
+        const toolbarElement = titleTextElement.closest('code-immersive-panel > toolbar'); 
+        if (!toolbarElement) {
+            console.warn("Gemini Mod Userscript: Could not find parent toolbar for the title element.");
+            displayUserscriptMessage("Could not locate the toolbar for the active canvas.");
             return;
         }
+        console.log("Gemini Mod Userscript: Found toolbar element relative to title:", toolbarElement);
+
+        const copyButton = toolbarElement.querySelector(GEMINI_COPY_BUTTON_IN_TOOLBAR_SELECTOR);
+        if (!copyButton) {
+            console.warn("Gemini Mod Userscript: 'Copy to Clipboard' button not found within the identified toolbar. Selector used:", GEMINI_COPY_BUTTON_IN_TOOLBAR_SELECTOR);
+            displayUserscriptMessage("Could not find the 'Copy to Clipboard' button in the active canvas's toolbar.");
+            return;
+        }
+        console.log("Gemini Mod Userscript: Found 'Copy to Clipboard' button:", copyButton);
         copyButton.click();
+        console.log("Gemini Mod Userscript: Programmatically clicked 'Copy to Clipboard' button.");
+
         setTimeout(async () => {
             try {
                 if (!navigator.clipboard || !navigator.clipboard.readText) {
@@ -352,18 +340,16 @@
                     return;
                 }
                 const clipboardContent = await navigator.clipboard.readText();
+                console.log("Gemini Mod Userscript: Successfully read from clipboard.");
                 if (!clipboardContent || clipboardContent.trim() === "") {
                     displayUserscriptMessage("Clipboard empty after copy. Nothing to download.");
                     return;
                 }
-                let titleTextElement = canvasElement.querySelector(GEMINI_CANVAS_TITLE_TEXT_SELECTOR);
-                if (!titleTextElement) {
-                    const titleBar = canvasElement.querySelector(GEMINI_CANVAS_TITLE_BAR_SELECTOR);
-                    if (titleBar) titleTextElement = titleBar.querySelector(GEMINI_CANVAS_TITLE_TEXT_SELECTOR);
-                }
-                const canvasTitle = titleTextElement ? (titleTextElement.textContent || "Untitled Canvas").trim() : "Untitled Canvas";
+                
+                const canvasTitle = (titleTextElement.textContent || "Untitled Canvas").trim();
                 const filename = determineFilename(canvasTitle); 
                 triggerDownload(filename, clipboardContent);
+                console.log("Gemini Mod Userscript: Global download initiated for canvas title:", canvasTitle, "using clipboard content. Filename:", filename);
             } catch (err) {
                 console.error('Gemini Mod Userscript: Error reading from clipboard:', err);
                 displayUserscriptMessage(err.name === 'NotAllowedError' ? 'Clipboard permission denied.' : 'Failed to read clipboard.');
@@ -379,7 +365,6 @@
         }
         const toolbar = document.createElement('div');
         toolbar.id = toolbarId;
-
         buttonSnippets.forEach(snippet => {
             const button = document.createElement('button');
             button.textContent = snippet.label;
@@ -387,7 +372,6 @@
             button.addEventListener('click', () => insertSnippetText(snippet.text));
             toolbar.appendChild(button);
         });
-
         dropdownConfigurations.forEach(config => {
             if (config.options && config.options.length > 0) {
                 const select = document.createElement('select');
@@ -414,23 +398,19 @@
                 toolbar.appendChild(select);
             }
         });
-
         const spacer = document.createElement('div');
         spacer.className = 'userscript-toolbar-spacer';
         toolbar.appendChild(spacer);
-
         const pasteButton = document.createElement('button');
         pasteButton.textContent = PASTE_BUTTON_LABEL;
         pasteButton.title = "Paste from Clipboard";
         pasteButton.addEventListener('click', handlePasteButtonClick);
         toolbar.appendChild(pasteButton);
-
         const globalDownloadButton = document.createElement('button');
         globalDownloadButton.textContent = DOWNLOAD_BUTTON_LABEL;
         globalDownloadButton.title = "Download active canvas content (uses canvas's copy button)";
         globalDownloadButton.addEventListener('click', handleGlobalCanvasDownload);
         toolbar.appendChild(globalDownloadButton);
-
         document.body.insertBefore(toolbar, document.body.firstChild);
         console.log("Gemini Mod Userscript: Toolbar inserted.");
     }
