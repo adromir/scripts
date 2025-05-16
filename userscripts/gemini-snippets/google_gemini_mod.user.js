@@ -1,10 +1,16 @@
 // ==UserScript==
 // @name         Google Gemini Mod (Toolbar & Download)
 // @namespace    http://tampermonkey.net/
-// @version      0.0.4
+// @version      0.0.5
 // @description  Enhances Google Gemini with a toolbar for snippets and canvas content download.
+// @description[de] Verbessert Google Gemini mit einer Symbolleiste für Snippets und dem Herunterladen von Canvas-Inhalten.
 // @author       Adromir
 // @match        https://gemini.google.com/*
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=gemini.google.com
+// @license      MIT
+// @licenseURL   https://opensource.org/licenses/MIT
+// @homepageURL  https://github.com/adromir/scripts/tree/main/userscripts/gemini-snippets
+// @supportURL   https://github.com/adromir/scripts/issues
 // @downloadURL  https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // @updateURL    https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // @grant        GM_addStyle
@@ -15,11 +21,71 @@
 (function() {
     'use strict';
 
-    // --- Customizable Elements ---
+    // ===================================================================================
+    // I. CONFIGURATION SECTION
+    // ===================================================================================
+
+    // --- Customizable Labels for Toolbar Buttons ---
     const PASTE_BUTTON_LABEL = "📋 Paste";
     const DOWNLOAD_BUTTON_LABEL = "💾 Download Canvas as File";
 
-    // --- Embedded CSS ---
+    // --- CSS Selectors for DOM Elements ---
+    // Selector to find the h2 title element of an active canvas.
+    const GEMINI_CANVAS_TITLE_TEXT_SELECTOR = "#app-root > main > side-navigation-v2 > bard-sidenav-container > bard-sidenav-content > div.content-wrapper > div > div.content-container > chat-window > immersive-panel > code-immersive-panel > toolbar > div > div.left-panel > h2.title-text.gds-title-s.ng-star-inserted"; 
+    
+    // Selector for the "Copy to Clipboard" button, relative to the toolbar element.
+    const GEMINI_COPY_BUTTON_IN_TOOLBAR_SELECTOR = "div.action-buttons > copy-button.ng-star-inserted > button.copy-button";
+
+    // Selectors for the Gemini input field (for snippet insertion)
+    const GEMINI_INPUT_FIELD_SELECTORS = [
+        '.ql-editor p', 
+        '.ql-editor',   
+        'div[contenteditable="true"]' 
+    ];
+
+    // --- Download Feature Configuration ---
+    const DEFAULT_DOWNLOAD_EXTENSION = "txt"; 
+
+    // --- Regular Expressions for Filename Sanitization ---
+    // eslint-disable-next-line no-control-regex
+    const INVALID_FILENAME_CHARS_REGEX = /[<>:"/\\|?*\x00-\x1F]/g;
+    const RESERVED_WINDOWS_NAMES_REGEX = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
+    const FILENAME_WITH_EXT_REGEX = /^(.+)\.([a-zA-Z0-9]{1,8})$/; 
+    const SUBSTRING_FILENAME_REGEX = /([\w\s.,\-()[\\]{}'!~@#$%^&+=]+?\.([a-zA-Z0-9]{1,8}))(?=\s|$|[,.;:!?])/g;
+
+    // ===================================================================================
+    // II. TOOLBAR ELEMENT DEFINITIONS
+    // ===================================================================================
+
+    const buttonSnippets = [
+        { label: "Greeting", text: "Hello Gemini!" },
+        { label: "Explain", text: "Could you please explain ... in more detail?" },
+    ];
+
+    const dropdownConfigurations = [
+        {
+            placeholder: "Actions...",
+            options: [
+                { label: "Summarize", text: "Please summarize the following text:\n" },
+                { label: "Ideas", text: "Give me 5 ideas for ..." },
+                { label: "Code (JS)", text: "Give me a JavaScript code example for ..." },
+            ]
+        },
+        {
+            placeholder: "Translations",
+            options: [
+                { label: "DE -> EN", text: "Translate the following into English:\n" },
+                { label: "EN -> DE", text: "Translate the following into German:\n" },
+                { label: "Correct Text", text: "Please correct the grammar and spelling in the following text:\n" }
+            ]
+        },
+    ];
+
+    // ===================================================================================
+    // III. SCRIPT LOGIC
+    // ===================================================================================
+    
+    // --- Embedded CSS for the Toolbar ---
     const embeddedCSS = `
         #gemini-snippet-toolbar-userscript { 
           position: fixed !important; top: 0 !important; left: 50% !important; 
@@ -70,6 +136,9 @@
         }
     `;
 
+    /**
+     * Injects the embedded CSS using GM_addStyle.
+     */
     function injectCustomCSS() {
         try {
             GM_addStyle(embeddedCSS);
@@ -85,30 +154,11 @@
         }
     }
 
-    const buttonSnippets = [
-        { label: "Greeting", text: "Hello Gemini!" },
-        { label: "Explain", text: "Could you please explain ... in more detail?" },
-    ];
-
-    const dropdownConfigurations = [
-        {
-            placeholder: "Actions...",
-            options: [
-                { label: "Summarize", text: "Please summarize the following text:\n" },
-                { label: "Ideas", text: "Give me 5 ideas for ..." },
-                { label: "Code (JS)", text: "Give me a JavaScript code example for ..." },
-            ]
-        },
-        {
-            placeholder: "Translations",
-            options: [
-                { label: "DE -> EN", text: "Translate the following into English:\n" },
-                { label: "EN -> DE", text: "Translate the following into German:\n" },
-                { label: "Correct Text", text: "Please correct the grammar and spelling in the following text:\n" }
-            ]
-        },
-    ];
-
+    /**
+     * Displays a message to the user (console and alert).
+     * @param {string} message - The message to display.
+     * @param {boolean} isError - True if it's an error message.
+     */
     function displayUserscriptMessage(message, isError = true) {
         const prefix = "Gemini Mod Userscript: ";
         if (isError) console.error(prefix + message);
@@ -116,6 +166,10 @@
         alert(prefix + message);
     }
 
+    /**
+     * Moves the cursor to the end of the provided element's content.
+     * @param {Element} element - The contenteditable element or paragraph within it.
+     */
     function moveCursorToEnd(element) {
         try {
             const range = document.createRange();
@@ -130,21 +184,31 @@
         }
     }
 
+    /**
+     * Finds the target Gemini input element.
+     * @returns {Element | null} The found input element or null.
+     */
     function findTargetInputElement() {
-        const selectorsToTry = ['.ql-editor p', '.ql-editor', 'div[contenteditable="true"]'];
-        for (const selector of selectorsToTry) {
+        let targetInputElement = null;
+        for (const selector of GEMINI_INPUT_FIELD_SELECTORS) {
             const element = document.querySelector(selector);
             if (element) {
                 if (element.classList.contains('ql-editor')) {
                     const pInEditor = element.querySelector('p');
-                    return pInEditor || element;
+                    targetInputElement = pInEditor || element;
+                } else {
+                    targetInputElement = element;
                 }
-                return element;
+                break;
             }
         }
-        return null;
+        return targetInputElement;
     }
 
+    /**
+     * Inserts text into the Gemini input field, always appending.
+     * @param {string} textToInsert - The text snippet to insert.
+     */
     function insertSnippetText(textToInsert) {
         let targetInputElement = findTargetInputElement();
         if (!targetInputElement) {
@@ -183,6 +247,9 @@
         }, 50);
     }
 
+    /**
+     * Handles the paste button click. Reads from clipboard and inserts text.
+     */
     async function handlePasteButtonClick() {
         try {
             if (!navigator.clipboard || !navigator.clipboard.readText) {
@@ -198,20 +265,12 @@
         }
     }
 
-    // --- Canvas Download Feature ---
-    const DEFAULT_DOWNLOAD_EXTENSION = "txt";
-    // This selector now directly targets the title h2 element within an active immersive panel.
-    const GEMINI_CANVAS_TITLE_TEXT_SELECTOR = "immersive-panel.ng-tns-c1436378242-1.ng-trigger.ng-trigger-immersivePanelTransitions.ng-star-inserted code-immersive-panel > toolbar > div > div:nth-child(1) > h2.title-text.gds-title-s.ng-star-inserted"; 
-    
-    // This selector is now relative to the toolbar element that will be found via the titleTextElement.
-    const GEMINI_COPY_BUTTON_IN_TOOLBAR_SELECTOR = "copy-button.ng-star-inserted button.copy-button.icon-button";
-    
-    // eslint-disable-next-line no-control-regex
-    const INVALID_FILENAME_CHARS_REGEX = /[<>:"/\\|?*\x00-\x1F]/g;
-    const RESERVED_WINDOWS_NAMES_REGEX = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
-    const FILENAME_WITH_EXT_REGEX = /^(.+)\.([a-zA-Z0-9]{1,8})$/;
-    const SUBSTRING_FILENAME_REGEX = /([\w\s.,\-()[\\]{}'!~@#$%^&+=]+?\.([a-zA-Z0-9]{1,8}))(?=\s|$|[,.;:!?])/g;
-
+    /**
+     * Helper function to ensure filename length does not exceed a maximum.
+     * @param {string} filename - The filename to check.
+     * @param {number} maxLength - The maximum allowed length.
+     * @returns {string} The potentially truncated filename.
+     */
     function ensureLength(filename, maxLength = 255) {
         if (filename.length <= maxLength) {
             return filename;
@@ -229,6 +288,11 @@
         return base.substring(0, maxBaseLength) + ext;
     }
 
+    /**
+     * Sanitizes a base filename part (no extension).
+     * @param {string} baseName - The base name to sanitize.
+     * @returns {string} The sanitized base name.
+     */
     function sanitizeBasename(baseName) {
         if (typeof baseName !== 'string' || baseName.trim() === "") return "downloaded_document";
         let sanitized = baseName.trim()
@@ -243,6 +307,13 @@
         return sanitized || "downloaded_document";
     }
 
+    /**
+     * Determines the filename for download based on the canvas title,
+     * prioritizing a `basename.ext` structure if found.
+     * @param {string} title - The original string (e.g., canvas title).
+     * @param {string} defaultExtension - The default extension if no structure is found.
+     * @returns {string} A processed filename.
+     */
     function determineFilename(title, defaultExtension = "txt") {
         const logPrefix = "Gemini Mod Userscript: determineFilename - ";
         if (!title || typeof title !== 'string' || title.trim() === "") {
@@ -288,6 +359,11 @@
         }
     }
 
+    /**
+     * Creates and triggers a download for the given text content.
+     * @param {string} filename - The desired filename.
+     * @param {string} content - The text content to download.
+     */
     function triggerDownload(filename, content) {
         try {
             const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -306,6 +382,11 @@
         }
     }
 
+    /**
+     * Handles the click of the global canvas download button.
+     * Finds the active canvas title, then its toolbar and copy button,
+     * then reads from clipboard and initiates download.
+     */
     async function handleGlobalCanvasDownload() {
         const titleTextElement = document.querySelector(GEMINI_CANVAS_TITLE_TEXT_SELECTOR);
         if (!titleTextElement) {
@@ -315,9 +396,9 @@
         }
         console.log("Gemini Mod Userscript: Found canvas title element:", titleTextElement);
 
-        const toolbarElement = titleTextElement.closest('code-immersive-panel > toolbar'); 
+        const toolbarElement = titleTextElement.closest('toolbar'); 
         if (!toolbarElement) {
-            console.warn("Gemini Mod Userscript: Could not find parent toolbar for the title element.");
+            console.warn("Gemini Mod Userscript: Could not find parent toolbar for the title element. Searched for 'toolbar' tag from title.");
             displayUserscriptMessage("Could not locate the toolbar for the active canvas.");
             return;
         }
@@ -325,7 +406,7 @@
 
         const copyButton = toolbarElement.querySelector(GEMINI_COPY_BUTTON_IN_TOOLBAR_SELECTOR);
         if (!copyButton) {
-            console.warn("Gemini Mod Userscript: 'Copy to Clipboard' button not found within the identified toolbar. Selector used:", GEMINI_COPY_BUTTON_IN_TOOLBAR_SELECTOR);
+            console.warn("Gemini Mod Userscript: 'Copy to Clipboard' button not found within the identified toolbar. Selector used on toolbar:", GEMINI_COPY_BUTTON_IN_TOOLBAR_SELECTOR);
             displayUserscriptMessage("Could not find the 'Copy to Clipboard' button in the active canvas's toolbar.");
             return;
         }
@@ -357,12 +438,16 @@
         }, 300);
     }
 
+    /**
+     * Creates the snippet toolbar and adds it to the page.
+     */
     function createToolbar() {
         const toolbarId = 'gemini-snippet-toolbar-userscript';
         if (document.getElementById(toolbarId)) {
             console.log("Gemini Mod Userscript: Toolbar already exists.");
             return;
         }
+        console.log("Gemini Mod Userscript: Initializing toolbar...");
         const toolbar = document.createElement('div');
         toolbar.id = toolbarId;
         buttonSnippets.forEach(snippet => {
@@ -415,10 +500,15 @@
         console.log("Gemini Mod Userscript: Toolbar inserted.");
     }
 
+    /**
+     * Handles dark mode. For a userscript, this is mostly about adapting to the site's
+     * existing dark mode, if necessary for the toolbar.
+     */
     function handleDarkModeForUserscript() {
         console.log("Gemini Mod Userscript: Dark mode handling is passive (toolbar is dark by default).");
     }
 
+    // --- Initialization Logic ---
     function init() {
         console.log("Gemini Mod Userscript: Initializing...");
         injectCustomCSS();
