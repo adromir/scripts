@@ -15,7 +15,6 @@
 // @updateURL    https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // @grant        GM_addStyle
 // @grant        GM_setClipboard
-// @grant        GM_getClipboard
 // ==/UserScript==
 
 (function() {
