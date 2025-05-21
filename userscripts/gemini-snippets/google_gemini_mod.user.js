@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Gemini Mod (Toolbar & Download)
 // @namespace    http://tampermonkey.net/
-// @version      0.0.6
+// @version      0.0.7
 // @description  Enhances Google Gemini with a toolbar for snippets and canvas content download.
 // @description[de] Verbessert Google Gemini mit einer Symbolleiste für Snippets und dem Herunterladen von Canvas-Inhalten.
 // @author       Adromir
@@ -25,16 +25,33 @@
     // I. CONFIGURATION SECTION
     // ===================================================================================
 
+    // --- Customizable Labels for Toolbar Buttons ---
     const PASTE_BUTTON_LABEL = "📋 Paste";
     const DOWNLOAD_BUTTON_LABEL = "💾 Download Canvas as File";
-    const GEMINI_CANVAS_TITLE_TEXT_SELECTOR = "#app-root > main > side-navigation-v2 > bard-sidenav-container > bard-sidenav-content > div.content-wrapper > div > div.content-container > chat-window > immersive-panel > code-immersive-panel > toolbar > div > div.left-panel > h2.title-text.gds-title-s.ng-star-inserted"; 
-    const GEMINI_COPY_BUTTON_IN_TOOLBAR_SELECTOR = "div.action-buttons > copy-button.ng-star-inserted > button.copy-button";
+
+    // --- CSS Selectors for DOM Elements ---
+    const GEMINI_CANVAS_TITLE_TEXT_SELECTOR = "code-immersive-panel > toolbar > div > div.left-panel > h2.title-text.gds-title-s.ng-star-inserted"; 
+    
+    // Selector for the "Share" button within the canvas's toolbar area.
+    const GEMINI_CANVAS_SHARE_BUTTON_SELECTOR = "toolbar div.action-buttons share-button > button";
+
+    // Selector for the "Copy to Clipboard" button, likely in a modal/overlay after share is clicked.
+    // Using the more robust alternative focusing on data-test-id if the div structure is too volatile.
+    const GEMINI_CANVAS_COPY_BUTTON_SELECTOR = "copy-button[data-test-id='copy-button'] > button.copy-button";
+    // Fallback if the above is too specific or div structure changes often:
+    // const GEMINI_CANVAS_COPY_BUTTON_SELECTOR_FALLBACK = "body > div:nth-child(n) > div:nth-child(n) > div > div > div > copy-button[data-test-id='copy-button'] > button.copy-button";
+
+
     const GEMINI_INPUT_FIELD_SELECTORS = [
         '.ql-editor p', 
         '.ql-editor',   
         'div[contenteditable="true"]' 
     ];
+
+    // --- Download Feature Configuration ---
     const DEFAULT_DOWNLOAD_EXTENSION = "txt"; 
+
+    // --- Regular Expressions for Filename Sanitization ---
     // eslint-disable-next-line no-control-regex
     const INVALID_FILENAME_CHARS_REGEX = /[<>:"/\\|?*\x00-\x1F]/g;
     const RESERVED_WINDOWS_NAMES_REGEX = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
@@ -351,46 +368,60 @@
         }
         console.log("Gemini Mod Userscript: Found canvas title element:", titleTextElement);
 
-        const toolbarElement = titleTextElement.closest('toolbar'); 
-        if (!toolbarElement) {
-            console.warn("Gemini Mod Userscript: Could not find parent toolbar for the title element. Searched for 'toolbar' tag from title.");
-            displayUserscriptMessage("Could not locate the toolbar for the active canvas.");
+        const codeImmersivePanelElement = titleTextElement.closest('code-immersive-panel');
+        if (!codeImmersivePanelElement) {
+            console.warn("Gemini Mod Userscript: Could not find parent 'code-immersive-panel' for the title element.");
+            displayUserscriptMessage("Could not locate the main canvas panel for the active canvas.");
             return;
         }
-        console.log("Gemini Mod Userscript: Found toolbar element relative to title:", toolbarElement);
-
-        const copyButton = toolbarElement.querySelector(GEMINI_COPY_BUTTON_IN_TOOLBAR_SELECTOR);
-        if (!copyButton) {
-            console.warn("Gemini Mod Userscript: 'Copy to Clipboard' button not found within the identified toolbar. Selector used on toolbar:", GEMINI_COPY_BUTTON_IN_TOOLBAR_SELECTOR);
-            displayUserscriptMessage("Could not find the 'Copy to Clipboard' button in the active canvas's toolbar.");
-            return;
+        console.log("Gemini Mod Userscript: Found 'code-immersive-panel' element:", codeImmersivePanelElement);
+        
+        const shareButton = codeImmersivePanelElement.querySelector(GEMINI_CANVAS_SHARE_BUTTON_SELECTOR);
+        if (!shareButton) {
+          console.warn("Gemini Mod Userscript: 'Share' button not found within 'code-immersive-panel'. Selector used:", GEMINI_CANVAS_SHARE_BUTTON_SELECTOR);
+          displayUserscriptMessage("Could not find the 'Share' button in the active canvas's panel.");
+          return;
         }
-        console.log("Gemini Mod Userscript: Found 'Copy to Clipboard' button:", copyButton);
-        copyButton.click();
-        console.log("Gemini Mod Userscript: Programmatically clicked 'Copy to Clipboard' button.");
+        console.log("Gemini Mod Userscript: Found 'Share' button:", shareButton);
+        shareButton.click();
+        console.log("Gemini Mod Userscript: Programmatically clicked the 'Share' button.");
 
-        setTimeout(async () => {
-            try {
-                if (!navigator.clipboard || !navigator.clipboard.readText) {
-                    displayUserscriptMessage("Clipboard access not available.");
-                    return;
-                }
-                const clipboardContent = await navigator.clipboard.readText();
-                console.log("Gemini Mod Userscript: Successfully read from clipboard.");
-                if (!clipboardContent || clipboardContent.trim() === "") {
-                    displayUserscriptMessage("Clipboard empty after copy. Nothing to download.");
-                    return;
-                }
-                
-                const canvasTitle = (titleTextElement.textContent || "Untitled Canvas").trim();
-                const filename = determineFilename(canvasTitle); 
-                triggerDownload(filename, clipboardContent);
-                console.log("Gemini Mod Userscript: Global download initiated for canvas title:", canvasTitle, "using clipboard content. Filename:", filename);
-            } catch (err) {
-                console.error('Gemini Mod Userscript: Error reading from clipboard:', err);
-                displayUserscriptMessage(err.name === 'NotAllowedError' ? 'Clipboard permission denied.' : 'Failed to read clipboard.');
+        // Wait for the copy button (potentially in a modal/overlay) to appear
+        setTimeout(() => {
+            const copyButton = document.querySelector(GEMINI_CANVAS_COPY_BUTTON_SELECTOR);
+            if (!copyButton) {
+              console.warn("Gemini Mod Userscript: 'Copy to Clipboard' button not found globally after clicking share. Selector used:", GEMINI_CANVAS_COPY_BUTTON_SELECTOR);
+              displayUserscriptMessage("Could not find the 'Copy to Clipboard' button after clicking share.");
+              return;
             }
-        }, 300);
+            console.log("Gemini Mod Userscript: Found 'Copy to Clipboard' button globally:", copyButton);
+
+            copyButton.click();
+            console.log("Gemini Mod Userscript: Programmatically clicked the 'Copy to Clipboard' button.");
+
+            setTimeout(async () => {
+                try {
+                    if (!navigator.clipboard || !navigator.clipboard.readText) {
+                        displayUserscriptMessage("Clipboard access not available.");
+                        return;
+                    }
+                    const clipboardContent = await navigator.clipboard.readText();
+                    console.log("Gemini Mod Userscript: Successfully read from clipboard.");
+                    if (!clipboardContent || clipboardContent.trim() === "") {
+                        displayUserscriptMessage("Clipboard empty after copy. Nothing to download.");
+                        return;
+                    }
+                    
+                    const canvasTitle = (titleTextElement.textContent || "Untitled Canvas").trim();
+                    const filename = determineFilename(canvasTitle); 
+                    triggerDownload(filename, clipboardContent);
+                    console.log("Gemini Mod Userscript: Global download initiated for canvas title:", canvasTitle, "using clipboard content. Filename:", filename);
+                } catch (err) {
+                    console.error('Gemini Mod Userscript: Error reading from clipboard:', err);
+                    displayUserscriptMessage(err.name === 'NotAllowedError' ? 'Clipboard permission denied.' : 'Failed to read clipboard.');
+                }
+            }, 300); // Delay for clipboard write
+        }, 500); // Delay for share menu to open and copy button to appear
     }
 
     function createToolbar() {
