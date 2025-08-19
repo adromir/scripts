@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Greasy Fork](https://img.shields.io/badge/Greasy%20Fork-Install-brightgreen)](https://greasyfork.org/scripts/536192-google-gemini-mod-toolbar-download) [![OpenUserJS](https://img.shields.io/badge/OpenUserJS-Install-blue)](https://openuserjs.org/scripts/Adromir/Google_Gemini_Mod_(Toolbar_Download))   
 
-![Screenshot Gemeni Mod](https://raw.githubusercontent.com/adromir/assets/refs/heads/main/screenshot-gemeni-mod.png)
+![image_ref_eis5rzv8]
 This UserScript enhances the Google Gemini web interface (`gemini.google.com`) by adding a customizable toolbar near the top of the page. This toolbar provides quick access to your custom text snippets, a paste button, and a feature to download the content of an active Gemini "Canvas".
 
 *(A screenshot of the toolbar being on the upper border)*
