@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.10
+// @version       0.0.11
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -13,12 +13,14 @@
 // @grant         GM_setValue
 // @grant         GM_getValue
 // @grant         GM_deleteValue
+// @grant         unsafeWindow
 // @require       https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js
+// @require       https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js
 // @downloadURL   https://raw.githubusercontent.com/adromir/scripts/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // @updateURL     https://raw.githubusercontent.com/adromir/scripts/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // ==/UserScript==
 
-(function() {
+(function () {
 	'use strict';
 
 	// ===================================================================================
@@ -31,19 +33,17 @@
 	const STORAGE_KEY_CONVO_FOLDERS = 'gemini_convo_folders';
 
 	// --- Toolbar UI Labels ---
-	const PASTE_BUTTON_LABEL = "📋 Paste";
-	const DOWNLOAD_BUTTON_LABEL = "💾 Download";
 	const SETTINGS_BUTTON_LABEL = "⚙️ Settings";
 
 	// --- CSS Selectors ---
-	const GEMINI_CODE_CANVAS_TITLE_SELECTOR = "code-immersive-panel > toolbar > div > div.left-panel > h2.title-text.gds-title-s.ng-star-inserted";
-    const GEMINI_CODE_CANVAS_PANEL_SELECTOR = 'code-immersive-panel';
-    const GEMINI_CODE_CANVAS_SHARE_BUTTON_SELECTOR = "toolbar div.action-buttons share-button > button";
-    const GEMINI_CODE_CANVAS_COPY_BUTTON_SELECTOR = "copy-button[data-test-id='copy-button'] > button.copy-button";
-    const GEMINI_DOC_CANVAS_PANEL_SELECTOR = "immersive-panel";
-    const GEMINI_DOC_CANVAS_EDITOR_SELECTOR = ".ProseMirror";
-    const GEMINI_DOC_CANVAS_TITLE_SELECTOR = ".ProseMirror h1";
-	const GEMINI_INPUT_FIELD_SELECTORS = ['.ql-editor p', '.ql-editor', 'div[contenteditable="true"]'];
+	const GEMINI_CODE_CANVAS_TITLE_SELECTOR = "code-immersive-panel h2.title-text";
+	const GEMINI_CODE_CANVAS_PANEL_SELECTOR = 'code-immersive-panel';
+	const GEMINI_CODE_CANVAS_SHARE_BUTTON_SELECTOR = "toolbar div.action-buttons share-button > button";
+	const GEMINI_CODE_CANVAS_COPY_BUTTON_SELECTOR = "copy-button[data-test-id='copy-button'] > button.copy-button";
+	const GEMINI_DOC_CANVAS_PANEL_SELECTOR = "immersive-panel";
+	const GEMINI_DOC_CANVAS_EDITOR_SELECTOR = ".ProseMirror";
+	const GEMINI_DOC_CANVAS_TITLE_SELECTOR = "h2.title-text";
+	const GEMINI_INPUT_FIELD_SELECTORS = ['div[role="textbox"]', '.ql-editor p', '.ql-editor', 'div[contenteditable="true"]'];
 	const FOLDER_CHAT_ITEM_SELECTOR = 'div[data-test-id="conversation"]';
 	const FOLDER_CHAT_CONTAINER_SELECTOR = '.conversation-items-container';
 	const FOLDER_CHAT_LIST_CONTAINER_SELECTOR = 'conversations-list .conversations-container';
@@ -74,6 +74,10 @@
 				{ label: "Ideas", text: "Give me 5 ideas for ..." },
 			]
 		},
+		{ type: 'action', action: 'paste', label: "📋 Paste", title: "Paste from Clipboard" },
+		{ type: 'action', action: 'copy', label: "📄 Copy", title: "Copy active canvas content" },
+		{ type: 'action', action: 'download', label: "💾 Download", title: "Download active canvas content" },
+		{ type: 'action', action: 'pdf', label: "📑 PDF", title: "Export active canvas content as PDF" }
 	];
 
 	// ===================================================================================
@@ -178,15 +182,57 @@
 		.folder { margin-bottom: 5px; border-radius: 8px; overflow: hidden; }
 		.folder-header { display: flex; align-items: center; padding: 10px; cursor: pointer; background-color: var(--surface-2); position: relative; }
 		.folder-header:hover { background-color: var(--surface-3); }
-		.folder-color-indicator { width: 8px; height: 20px; border-radius: 4px; margin-right: 10px; flex-shrink: 0; }
-		.folder-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'Roboto', Arial, sans-serif !important; }
+		
+        /* Folder Icon Styles */
+        .folder-icon-wrapper { margin-right: 10px; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
+        .folder-icon { width: 20px; height: 20px; transition: transform 0.2s ease; }
+        .folder.closed .icon-open { display: none; }
+        .folder:not(.closed) .icon-closed { display: none; }
+        
+		.folder-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'Roboto', Arial, sans-serif !important; font-weight: 500; }
 		.folder-controls { display: flex; align-items: center; margin-left: 5px; }
-		.folder-toggle-icon { transition: transform 0.2s; }
+		.folder-toggle-icon { transition: transform 0.2s; margin-right: 5px; font-size: 0.8em; opacity: 0.7; }
 		.folder.closed .folder-toggle-icon { transform: rotate(-90deg); }
 		.folder-options-btn { background: none; border: none; color: inherit; cursor: pointer; padding: 2px 4px; border-radius: 4px; margin-left: 4px; font-size: 1.2em; line-height: 1; }
 		.folder-options-btn:hover { background-color: rgba(255,255,255,0.1); }
-		.folder-content { max-height: 500px; overflow-y: auto; transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out; background-color: var(--surface-1); min-height: 10px; }
-		.folder.closed .folder-content { max-height: 0; padding-top: 0; padding-bottom: 0; min-height: 0; }
+		
+        /* List View Styles for Content */
+		.folder-content { 
+            max-height: 500px; 
+            overflow-y: auto; 
+            transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out; 
+            background-color: transparent; /* Transparent to let items stand out */
+            min-height: 10px; 
+            display: flex;
+            flex-direction: column;
+            gap: 4px; /* Gap between items */
+            padding: 4px 0;
+        }
+		.folder.closed .folder-content { max-height: 0; padding-top: 0; padding-bottom: 0; min-height: 0; overflow: hidden; }
+        
+        /* Style the conversation items within the folder to look like list items */
+        .folder-content .conversation-items-container {
+            background-color: var(--surface-1);
+            border-radius: 6px;
+            margin: 0 4px;
+            padding: 2px 0;
+            border: 1px solid var(--surface-4);
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+        }
+        .folder-content .conversation-items-container::before {
+            content: "•";
+            margin: 0 6px 0 10px;
+            color: var(--on-surface);
+            font-size: 1.2em;
+            line-height: 1;
+        }
+        .folder-content .conversation-items-container:hover {
+            background-color: var(--surface-2);
+            border-color: var(--surface-5);
+        }
+
 		#add-folder-btn { width: 100%; margin: 8px 0; padding: 10px; border: none; background-color: var(--primary-surface); color: var(--on-primary-surface); border-radius: 8px; cursor: pointer; font-weight: 500; }
 		#add-folder-btn:hover { opacity: 0.9; }
 		.conversation-items-container { cursor: grab; }
@@ -259,6 +305,17 @@
 			return;
 		}
 		target.focus();
+
+		// Force cursor to the end if no valid selection exists within the target
+		const selection = window.getSelection();
+		if (selection.rangeCount === 0 || !target.contains(selection.anchorNode)) {
+			const range = document.createRange();
+			range.selectNodeContents(target);
+			range.collapse(false); // Collapse to end
+			selection.removeAllRanges();
+			selection.addRange(range);
+		}
+
 		setTimeout(() => {
 			try {
 				document.execCommand('insertText', false, textToInsert);
@@ -277,7 +334,17 @@
 		try {
 			// Toolbar items
 			const savedToolbarItems = await GM_getValue(STORAGE_KEY_TOOLBAR_ITEMS);
-			toolbarItems = savedToolbarItems ? JSON.parse(savedToolbarItems) : defaultToolbarItems;
+			if (savedToolbarItems) {
+				toolbarItems = JSON.parse(savedToolbarItems);
+				// Migration: Check if actions are missing and append them if so (for existing users)
+				const hasAction = (act) => toolbarItems.some(item => item.type === 'action' && item.action === act);
+				if (!hasAction('paste')) toolbarItems.push({ type: 'action', action: 'paste', label: "📋 Paste", title: "Paste from Clipboard" });
+				if (!hasAction('copy')) toolbarItems.push({ type: 'action', action: 'copy', label: "📄 Copy", title: "Copy active canvas content" });
+				if (!hasAction('download')) toolbarItems.push({ type: 'action', action: 'download', label: "💾 Download", title: "Download active canvas content" });
+				if (!hasAction('pdf')) toolbarItems.push({ type: 'action', action: 'pdf', label: "📑 PDF", title: "Export active canvas content as PDF" });
+			} else {
+				toolbarItems = defaultToolbarItems;
+			}
 			// Folder items
 			folders = await GM_getValue(STORAGE_KEY_FOLDERS, []);
 			conversationFolders = await GM_getValue(STORAGE_KEY_CONVO_FOLDERS, {});
@@ -296,10 +363,12 @@
 		const newItems = [];
 		settingsPanel.querySelectorAll('#toolbar-items-container > .item-group').forEach(group => {
 			const type = group.dataset.type;
+			const visible = group.querySelector('.visible-checkbox').checked;
+
 			if (type === 'button') {
 				const label = group.querySelector('.label-input').value.trim();
 				const text = group.querySelector('.text-input').value;
-				if (label) newItems.push({ type, label, text });
+				if (label) newItems.push({ type, label, text, visible });
 			} else if (type === 'dropdown') {
 				const placeholder = group.querySelector('.placeholder-input').value.trim();
 				const options = [];
@@ -309,8 +378,13 @@
 					if (label) options.push({ label, text });
 				});
 				if (placeholder && options.length > 0) {
-					newItems.push({ type, placeholder, options });
+					newItems.push({ type, placeholder, options, visible });
 				}
+			} else if (type === 'action') {
+				const action = group.dataset.action;
+				const label = group.querySelector('.label-input').value.trim();
+				const title = group.dataset.title;
+				if (label) newItems.push({ type, action, label, title, visible });
 			}
 		});
 
@@ -345,6 +419,8 @@
 		}
 
 		toolbarItems.forEach(item => {
+			if (item.visible === false) return; // Skip hidden items
+
 			if (item.type === 'button') {
 				const button = document.createElement('button');
 				button.textContent = item.label;
@@ -365,31 +441,33 @@
 					}
 				});
 				toolbar.appendChild(select);
+			} else if (item.type === 'action') {
+				const button = document.createElement('button');
+				button.textContent = item.label;
+				button.title = item.title;
+				if (item.action === 'paste') {
+					button.addEventListener('click', async () => {
+						try {
+							const text = await navigator.clipboard.readText();
+							if (text) insertSnippetText(text);
+						} catch (err) {
+							displayUserscriptMessage('Failed to read clipboard: ' + err.message);
+						}
+					});
+				} else if (item.action === 'download') {
+					button.addEventListener('click', handleGlobalCanvasDownload);
+				} else if (item.action === 'pdf') {
+					button.addEventListener('click', handlePDFExport);
+				} else if (item.action === 'copy') {
+					button.addEventListener('click', handleCopy);
+				}
+				toolbar.appendChild(button);
 			}
 		});
 
 		const spacer = document.createElement('div');
 		spacer.className = 'userscript-toolbar-spacer';
 		toolbar.appendChild(spacer);
-
-		const pasteButton = document.createElement('button');
-		pasteButton.textContent = PASTE_BUTTON_LABEL;
-		pasteButton.title = "Paste from Clipboard";
-		pasteButton.addEventListener('click', async () => {
-			try {
-				const text = await navigator.clipboard.readText();
-				if (text) insertSnippetText(text);
-			} catch (err) {
-				displayUserscriptMessage('Failed to read clipboard: ' + err.message);
-			}
-		});
-		toolbar.appendChild(pasteButton);
-
-		const downloadButton = document.createElement('button');
-		downloadButton.textContent = DOWNLOAD_BUTTON_LABEL;
-		downloadButton.title = "Download active canvas content";
-		downloadButton.addEventListener('click', handleGlobalCanvasDownload);
-		toolbar.appendChild(downloadButton);
 
 		const settingsButton = document.createElement('button');
 		settingsButton.textContent = SETTINGS_BUTTON_LABEL;
@@ -430,6 +508,16 @@
 	function renderFolders() {
 		const container = document.getElementById('folder-container');
 		if (!container) return;
+
+		// Move all conversation items back to the main list before clearing folders
+		// This prevents them from being deleted from the DOM
+		const chatListContainer = document.querySelector(FOLDER_CHAT_LIST_CONTAINER_SELECTOR);
+		if (chatListContainer) {
+			container.querySelectorAll(FOLDER_CHAT_CONTAINER_SELECTOR).forEach(item => {
+				chatListContainer.appendChild(item);
+			});
+		}
+
 		clearElement(container);
 
 		folders.forEach(folder => {
@@ -444,9 +532,24 @@
 				if (!e.target.closest('.folder-options-btn')) toggleFolder(folder.id);
 			});
 
-			const colorIndicator = document.createElement('div');
-			colorIndicator.className = 'folder-color-indicator';
-			colorIndicator.style.backgroundColor = folder.color;
+			// Icon Wrapper
+			const iconWrapper = document.createElement('div');
+			iconWrapper.className = 'folder-icon-wrapper';
+
+			// SVG for Closed Folder
+			const iconClosed = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+			iconClosed.setAttribute("viewBox", "0 0 24 24");
+			iconClosed.setAttribute("class", "folder-icon icon-closed");
+			iconClosed.innerHTML = `<path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" fill="${folder.color}"/>`;
+
+			// SVG for Open Folder
+			const iconOpen = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+			iconOpen.setAttribute("viewBox", "0 0 24 24");
+			iconOpen.setAttribute("class", "folder-icon icon-open");
+			iconOpen.innerHTML = `<path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" fill="${folder.color}"/>`;
+
+			iconWrapper.appendChild(iconClosed);
+			iconWrapper.appendChild(iconOpen);
 
 			const nameEl = document.createElement('span');
 			nameEl.className = 'folder-name';
@@ -466,7 +569,8 @@
 
 			controlsEl.appendChild(toggleIcon);
 			controlsEl.appendChild(optionsBtn);
-			headerEl.appendChild(colorIndicator);
+
+			headerEl.appendChild(iconWrapper);
 			headerEl.appendChild(nameEl);
 			headerEl.appendChild(controlsEl);
 
@@ -536,7 +640,10 @@
 		const folderEl = document.querySelector(`.folder[data-folder-id="${folderId}"]`);
 		if (!folder || !folderEl) return;
 		folderEl.querySelector('.folder-name').textContent = folder.name;
-		folderEl.querySelector('.folder-color-indicator').style.backgroundColor = folder.color;
+		// Update icon colors
+		folderEl.querySelectorAll('.folder-icon path').forEach(path => {
+			path.setAttribute('fill', folder.color);
+		});
 	}
 
 	function renameFolder(folderId) {
@@ -656,11 +763,27 @@
 		btnNo.className = 'custom-dialog-btn dialog-btn-cancel';
 		btnNo.textContent = 'Cancel';
 
+		const btnReset = document.createElement('button');
+		btnReset.className = 'custom-dialog-btn';
+		btnReset.style.backgroundColor = '#5f6368';
+		btnReset.style.color = '#ffffff';
+		btnReset.textContent = 'Reset';
+
 		dialogBox.appendChild(titleH2);
 		dialogBox.appendChild(grid);
 		dialogBox.appendChild(hexInput);
-		dialogBox.appendChild(btnYes);
-		dialogBox.appendChild(btnNo);
+
+		const buttonContainer = document.createElement('div');
+		buttonContainer.style.display = 'flex';
+		buttonContainer.style.justifyContent = 'center';
+		buttonContainer.style.marginTop = '20px';
+
+		buttonContainer.appendChild(btnYes);
+		buttonContainer.appendChild(btnNo);
+		buttonContainer.appendChild(btnReset);
+
+		dialogBox.appendChild(buttonContainer);
+
 		overlay.appendChild(dialogBox);
 		document.body.appendChild(overlay);
 
@@ -680,6 +803,11 @@
 			}
 		};
 		btnNo.onclick = () => { overlay.remove(); };
+		btnReset.onclick = () => {
+			selectedColor = '#808080';
+			hexInput.value = selectedColor;
+			grid.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+		};
 	}
 
 	function showConfirmationDialog(message, onConfirm, confirmText = "Confirm", confirmClass = "dialog-btn-confirm") {
@@ -754,15 +882,15 @@
 			});
 		});
 
-        // For toolbar items in settings
-        const toolbarItemsContainer = document.getElementById('toolbar-items-container');
-        if (toolbarItemsContainer) {
-            new Sortable(toolbarItemsContainer, {
-                animation: 150,
-                ghostClass: 'sortable-ghost',
-                // No onEnd needed as saving is manual via the "Save" button
-            });
-        }
+		// For toolbar items in settings
+		const toolbarItemsContainer = document.getElementById('toolbar-items-container');
+		if (toolbarItemsContainer) {
+			new Sortable(toolbarItemsContainer, {
+				animation: 150,
+				ghostClass: 'sortable-ghost',
+				// No onEnd needed as saving is manual via the "Save" button
+			});
+		}
 	}
 
 	function rebuildAndSaveState() {
@@ -818,14 +946,14 @@
 
 		panel.appendChild(document.createElement('h2')).textContent = 'Gemini Mod Settings';
 
-        // Toolbar Section
-        panel.appendChild(document.createElement('h3')).textContent = 'Toolbar Items';
-        const dragDropHint = document.createElement('p');
-        dragDropHint.textContent = 'The order of the items can be changed via Drag & Drop.';
-        dragDropHint.style.fontSize = '12px';
-        dragDropHint.style.color = '#aaa';
-        dragDropHint.style.margin = '-5px 0 10px 0';
-        panel.appendChild(dragDropHint);
+		// Toolbar Section
+		panel.appendChild(document.createElement('h3')).textContent = 'Toolbar Items';
+		const dragDropHint = document.createElement('p');
+		dragDropHint.textContent = 'The order of the items can be changed via Drag & Drop.';
+		dragDropHint.style.fontSize = '12px';
+		dragDropHint.style.color = '#aaa';
+		dragDropHint.style.margin = '-5px 0 10px 0';
+		panel.appendChild(dragDropHint);
 
 		const itemsContainer = document.createElement('div');
 		itemsContainer.id = 'toolbar-items-container';
@@ -836,19 +964,40 @@
 		addItemBtn.addEventListener('click', showToolbarItemTypeModal);
 		panel.appendChild(addItemBtn);
 
-        // Folder Section
-        panel.appendChild(document.createElement('h3')).textContent = 'Folder Settings';
-        const resetFoldersBtn = document.createElement('button');
-        resetFoldersBtn.textContent = 'Reset All Folder Data';
-        resetFoldersBtn.className = 'remove-btn';
-        resetFoldersBtn.addEventListener('click', () => {
-            showConfirmationDialog('Are you sure you want to delete all folder data? This cannot be undone.', async () => {
+		// Folder Section
+		panel.appendChild(document.createElement('h3')).textContent = 'Reset Settings';
+
+		const resetContainer = document.createElement('div');
+		resetContainer.style.display = 'flex';
+		resetContainer.style.gap = '10px';
+		resetContainer.style.flexWrap = 'wrap';
+
+		const resetFoldersBtn = document.createElement('button');
+		resetFoldersBtn.textContent = 'Reset Folders';
+		resetFoldersBtn.className = 'remove-btn';
+		resetFoldersBtn.addEventListener('click', () => {
+			showConfirmationDialog('Are you sure you want to delete all folder data? This cannot be undone.', async () => {
 				await GM_deleteValue(STORAGE_KEY_FOLDERS);
 				await GM_deleteValue(STORAGE_KEY_CONVO_FOLDERS);
 				location.reload();
 			}, 'Reset', 'dialog-btn-delete');
-        });
-        panel.appendChild(resetFoldersBtn);
+		});
+
+		const resetEverythingBtn = document.createElement('button');
+		resetEverythingBtn.textContent = 'Reset Everything';
+		resetEverythingBtn.className = 'remove-btn';
+		resetEverythingBtn.addEventListener('click', () => {
+			showConfirmationDialog('Are you sure you want to delete ALL data (Folders, Toolbar, Settings)? This cannot be undone.', async () => {
+				await GM_deleteValue(STORAGE_KEY_FOLDERS);
+				await GM_deleteValue(STORAGE_KEY_CONVO_FOLDERS);
+				await GM_deleteValue(STORAGE_KEY_TOOLBAR_ITEMS);
+				location.reload();
+			}, 'Reset Everything', 'dialog-btn-delete');
+		});
+
+		resetContainer.appendChild(resetFoldersBtn);
+		resetContainer.appendChild(resetEverythingBtn);
+		panel.appendChild(resetContainer);
 
 
 		const actionsDiv = document.createElement('div');
@@ -874,8 +1023,8 @@
 			modal.id = 'gemini-mod-type-modal-overlay';
 			const modalContent = document.createElement('div');
 			modalContent.id = 'gemini-mod-type-modal';
-            const h3 = document.createElement('h3');
-            h3.textContent = 'Select Toolbar Item Type';
+			const h3 = document.createElement('h3');
+			h3.textContent = 'Select Toolbar Item Type';
 			modalContent.appendChild(h3);
 
 			const btnButton = document.createElement('button');
@@ -892,12 +1041,68 @@
 				modal.style.display = 'none';
 			});
 
+			const btnAction = document.createElement('button');
+			btnAction.textContent = 'Predefined Action';
+			btnAction.addEventListener('click', () => {
+				showActionSelectionModal();
+				modal.style.display = 'none';
+			});
+
 			modalContent.appendChild(btnButton);
 			modalContent.appendChild(btnDropdown);
+			modalContent.appendChild(btnAction);
 			modal.appendChild(modalContent);
 			document.body.appendChild(modal);
 		}
 		modal.style.display = 'block';
+	}
+
+	function showActionSelectionModal() {
+		const actions = [
+			{ action: 'paste', label: "📋 Paste", title: "Paste from Clipboard" },
+			{ action: 'copy', label: "📄 Copy", title: "Copy active canvas content" },
+			{ action: 'download', label: "💾 Download", title: "Download active canvas content" },
+			{ action: 'pdf', label: "📑 PDF", title: "Export active canvas content as PDF" }
+		];
+
+		// Simple prompt or small modal to pick action
+		// For simplicity, let's reuse the modal structure or create a quick one
+		let modal = document.getElementById('gemini-mod-action-modal-overlay');
+		if (!modal) {
+			modal = document.createElement('div');
+			modal.id = 'gemini-mod-action-modal-overlay';
+			modal.className = 'custom-dialog-overlay'; // Reuse class
+
+			const modalContent = document.createElement('div');
+			modalContent.className = 'custom-dialog-box';
+
+			const h3 = document.createElement('h3');
+			h3.textContent = 'Select Action';
+			modalContent.appendChild(h3);
+
+			actions.forEach(act => {
+				const btn = document.createElement('button');
+				btn.className = 'custom-dialog-btn';
+				btn.textContent = act.label;
+				btn.style.margin = '5px';
+				btn.addEventListener('click', () => {
+					addItemToPanel({ type: 'action', ...act });
+					modal.style.display = 'none';
+				});
+				modalContent.appendChild(btn);
+			});
+
+			const cancelBtn = document.createElement('button');
+			cancelBtn.className = 'custom-dialog-btn dialog-btn-cancel';
+			cancelBtn.textContent = 'Cancel';
+			cancelBtn.style.marginTop = '10px';
+			cancelBtn.addEventListener('click', () => modal.style.display = 'none');
+			modalContent.appendChild(cancelBtn);
+
+			modal.appendChild(modalContent);
+			document.body.appendChild(modal);
+		}
+		modal.style.display = 'flex';
 	}
 
 	function populateSettingsPanel() {
@@ -911,6 +1116,25 @@
 		const group = document.createElement('div');
 		group.className = 'item-group';
 		group.dataset.type = item.type;
+
+		// Visibility Checkbox
+		const visibleLabel = document.createElement('label');
+		visibleLabel.style.display = 'flex';
+		visibleLabel.style.alignItems = 'center';
+		visibleLabel.style.marginBottom = '0';
+		visibleLabel.style.marginRight = '10px';
+		visibleLabel.style.cursor = 'pointer';
+
+		const visibleCheckbox = document.createElement('input');
+		visibleCheckbox.type = 'checkbox';
+		visibleCheckbox.className = 'visible-checkbox';
+		visibleCheckbox.checked = item.visible !== false;
+		visibleCheckbox.style.width = 'auto';
+		visibleCheckbox.style.marginRight = '5px';
+
+		visibleLabel.appendChild(visibleCheckbox);
+		visibleLabel.appendChild(document.createTextNode('Show'));
+		group.appendChild(visibleLabel);
 
 		// Item Content
 		const contentDiv = document.createElement('div');
@@ -963,17 +1187,32 @@
 			} else {
 				addOptionToDropdownPanel(optionsContainer);
 			}
+		} else if (item.type === 'action') {
+			group.dataset.action = item.action;
+			group.dataset.title = item.title;
+
+			const labelLabel = document.createElement('label');
+			labelLabel.textContent = `Action: ${item.action.toUpperCase()}`;
+			contentDiv.appendChild(labelLabel);
+
+			const labelInput = document.createElement('input');
+			labelInput.type = 'text';
+			labelInput.className = 'label-input';
+			labelInput.value = item.label || '';
+			contentDiv.appendChild(labelInput);
 		}
 		group.appendChild(contentDiv);
 
-		// Remove Button
-		const removeBtn = document.createElement('button');
-		removeBtn.className = 'remove-btn';
-		removeBtn.textContent = 'Remove';
-		removeBtn.addEventListener('click', () => {
-			group.remove();
-		});
-		group.appendChild(removeBtn);
+		// Remove Button (Only for non-action items)
+		if (item.type !== 'action') {
+			const removeBtn = document.createElement('button');
+			removeBtn.className = 'remove-btn';
+			removeBtn.textContent = 'Remove';
+			removeBtn.addEventListener('click', () => {
+				group.remove();
+			});
+			group.appendChild(removeBtn);
+		}
 
 		container.appendChild(group);
 	}
@@ -1013,8 +1252,8 @@
 
 		if (show) {
 			populateSettingsPanel();
-            // This needs to be called after population to init Sortable
-            setupDragAndDrop();
+			// This needs to be called after population to init Sortable
+			setupDragAndDrop();
 			overlay.style.display = 'block';
 		} else {
 			overlay.style.display = 'none';
@@ -1064,63 +1303,295 @@
 		}
 	}
 
-    async function handleGlobalCanvasDownload() {
-        // --- METHOD 1: Try the logic for Code Canvases ---
-        const codeTitleEl = document.querySelector(GEMINI_CODE_CANVAS_TITLE_SELECTOR);
+	function waitForElement(selector, timeout = 3000) {
+		return new Promise((resolve, reject) => {
+			const element = document.querySelector(selector);
+			if (element) return resolve(element);
 
-        if (codeTitleEl) {
-            console.log("Gemini Mod: Code canvas detected. Using clipboard method.");
-            const panelEl = codeTitleEl.closest(GEMINI_CODE_CANVAS_PANEL_SELECTOR);
-            const shareButton = panelEl?.querySelector(GEMINI_CODE_CANVAS_SHARE_BUTTON_SELECTOR);
-            if (!shareButton) return displayUserscriptMessage("Could not find the 'Share' button in the code canvas.");
+			const observer = new MutationObserver((mutations) => {
+				const element = document.querySelector(selector);
+				if (element) {
+					resolve(element);
+					observer.disconnect();
+				}
+			});
 
-            shareButton.click();
+			observer.observe(document.body, {
+				childList: true,
+				subtree: true
+			});
 
-            setTimeout(() => {
-                const copyButton = document.querySelector(GEMINI_CODE_CANVAS_COPY_BUTTON_SELECTOR);
-                if (!copyButton) return displayUserscriptMessage("Could not find the 'Copy' button after sharing.");
+			setTimeout(() => {
+				observer.disconnect();
+				reject(new Error(`Element ${selector} not found within ${timeout}ms`));
+			}, timeout);
+		});
+	}
 
-                copyButton.click();
+	async function handleGlobalCanvasDownload() {
+		// --- METHOD 1: Monaco Editor Direct Access (Preferred) ---
+		try {
+			if (typeof unsafeWindow !== 'undefined' && unsafeWindow.monaco) {
+				const editors = unsafeWindow.monaco.editor.getEditors();
+				// Find the editor that is currently visible/attached
+				const activeEditor = editors.find(e => {
+					const node = e.getContainerDomNode();
+					return document.body.contains(node) && node.offsetParent !== null;
+				});
 
-                setTimeout(async () => {
-                    try {
-                        const content = await navigator.clipboard.readText();
-                        if (!content) return displayUserscriptMessage("Clipboard empty. Nothing to download.");
-                        const filename = determineFilename(codeTitleEl.textContent);
-                        triggerDownload(filename, content);
-                    } catch (err) {
-                        displayUserscriptMessage('Clipboard permission denied or failed to read.');
-                    }
-                }, 300);
-            }, 500);
-            return; // Stop execution if successful
-        }
+				if (activeEditor) {
+					const model = activeEditor.getModel();
+					if (model) {
+						console.log("Gemini Mod: Found active Monaco editor.");
+						const content = model.getValue();
+						const titleEl = document.querySelector(GEMINI_CODE_CANVAS_TITLE_SELECTOR);
+						const title = titleEl ? titleEl.textContent : "code_snippet";
+						triggerDownload(determineFilename(title), content);
+						return;
+					}
+				}
+			}
+		} catch (e) {
+			console.warn("Gemini Mod: Monaco access failed", e);
+		}
 
-        // --- METHOD 2: Fallback logic for Document/Immersive Canvases ---
-        const immersivePanel = document.querySelector(GEMINI_DOC_CANVAS_PANEL_SELECTOR);
-        const editorContent = immersivePanel?.querySelector(GEMINI_DOC_CANVAS_EDITOR_SELECTOR);
+		// --- METHOD 2: Code Canvas "Share -> Copy" Automation (Fallback) ---
+		const codeTitleEl = document.querySelector(GEMINI_CODE_CANVAS_TITLE_SELECTOR);
 
-        if (editorContent) {
-            console.log("Gemini Mod: Document canvas detected. Using direct extraction method.");
-            const content = editorContent.innerText;
-            if (!content || content.trim() === "") {
-                return displayUserscriptMessage("Document canvas is empty. Nothing to download.");
-            }
+		if (codeTitleEl) {
+			console.log("Gemini Mod: Code canvas detected. Using clipboard fallback.");
+			const panelEl = codeTitleEl.closest(GEMINI_CODE_CANVAS_PANEL_SELECTOR);
+			const shareButton = panelEl?.querySelector(GEMINI_CODE_CANVAS_SHARE_BUTTON_SELECTOR);
+			if (!shareButton) return displayUserscriptMessage("Could not find the 'Share' button in the code canvas.");
 
-            let title = "document_canvas";
-            const titleEl = editorContent.querySelector(GEMINI_DOC_CANVAS_TITLE_SELECTOR);
-            if (titleEl && titleEl.innerText.trim() !== "") {
-                title = titleEl.innerText.trim();
-            }
+			shareButton.click();
 
-            const filename = determineFilename(title);
-            triggerDownload(filename, content);
-            return; // Stop execution if successful
-        }
+			try {
+				const copyButton = await waitForElement(GEMINI_CODE_CANVAS_COPY_BUTTON_SELECTOR, 2000);
+				copyButton.click();
 
-        // --- If both methods fail ---
-        displayUserscriptMessage("No active or supported canvas found to download.");
-    }
+				// Wait a bit for clipboard write
+				setTimeout(async () => {
+					try {
+						const content = await navigator.clipboard.readText();
+						if (!content) return displayUserscriptMessage("Clipboard empty. Nothing to download.");
+						const filename = determineFilename(codeTitleEl.textContent);
+						triggerDownload(filename, content);
+					} catch (err) {
+						displayUserscriptMessage('Clipboard permission denied or failed to read.');
+					}
+				}, 300);
+
+			} catch (err) {
+				displayUserscriptMessage("Could not find 'Copy' button after sharing.");
+			}
+			return;
+		}
+
+		// --- METHOD 3: Fallback logic for Document/Immersive Canvases ---
+		const immersivePanel = document.querySelector(GEMINI_DOC_CANVAS_PANEL_SELECTOR);
+		const editorContent = immersivePanel?.querySelector(GEMINI_DOC_CANVAS_EDITOR_SELECTOR);
+
+		if (editorContent) {
+			console.log("Gemini Mod: Document canvas detected. Using direct extraction method.");
+			const content = editorContent.innerText;
+			if (!content || content.trim() === "") {
+				return displayUserscriptMessage("Document canvas is empty. Nothing to download.");
+			}
+
+			let title = "document_canvas";
+			// Query title from the panel (toolbar), not the editor content
+			const titleEl = immersivePanel.querySelector(GEMINI_DOC_CANVAS_TITLE_SELECTOR);
+			if (titleEl && titleEl.innerText.trim() !== "") {
+				title = titleEl.innerText.trim();
+			}
+
+			const filename = determineFilename(title);
+			triggerDownload(filename, content);
+			return; // Stop execution if successful
+		}
+
+		displayUserscriptMessage("No active or supported canvas found to download.");
+	}
+
+	async function handleCopy() {
+		// --- METHOD 1: Monaco Editor Direct Access ---
+		try {
+			if (typeof unsafeWindow !== 'undefined' && unsafeWindow.monaco) {
+				const editors = unsafeWindow.monaco.editor.getEditors();
+				const activeEditor = editors.find(e => {
+					const node = e.getContainerDomNode();
+					return document.body.contains(node) && node.offsetParent !== null;
+				});
+				if (activeEditor) {
+					const model = activeEditor.getModel();
+					if (model) {
+						const content = model.getValue();
+						await navigator.clipboard.writeText(content);
+						displayUserscriptMessage("Code copied to clipboard!", false);
+						return;
+					}
+				}
+			}
+		} catch (e) { console.warn("Gemini Mod: Monaco access failed for copy", e); }
+
+		// --- METHOD 2: Code Canvas "Share -> Copy" Automation ---
+		const codeTitleEl = document.querySelector(GEMINI_CODE_CANVAS_TITLE_SELECTOR);
+		if (codeTitleEl) {
+			const panelEl = codeTitleEl.closest(GEMINI_CODE_CANVAS_PANEL_SELECTOR);
+			const shareButton = panelEl?.querySelector(GEMINI_CODE_CANVAS_SHARE_BUTTON_SELECTOR);
+			if (shareButton) {
+				shareButton.click();
+				try {
+					const copyButton = await waitForElement(GEMINI_CODE_CANVAS_COPY_BUTTON_SELECTOR, 2000);
+					copyButton.click();
+					displayUserscriptMessage("Code copied to clipboard!", false);
+				} catch (err) {
+					displayUserscriptMessage("Could not find 'Copy' button.");
+				}
+				return;
+			}
+		}
+
+		// --- METHOD 3: Document Canvas ---
+		const immersivePanel = document.querySelector(GEMINI_DOC_CANVAS_PANEL_SELECTOR);
+		const editorContent = immersivePanel?.querySelector(GEMINI_DOC_CANVAS_EDITOR_SELECTOR);
+		if (editorContent) {
+			const content = editorContent.innerText;
+			if (content) {
+				await navigator.clipboard.writeText(content);
+				displayUserscriptMessage("Document copied to clipboard!", false);
+				return;
+			}
+		}
+
+		// --- METHOD 4: Last Model Response (Fallback) ---
+		// Try to find the last model response in the chat
+		const modelResponses = document.querySelectorAll('.model-response-text'); // This selector might need adjustment based on Gemini's DOM
+		if (modelResponses.length > 0) {
+			const lastResponse = modelResponses[modelResponses.length - 1];
+			const text = lastResponse.innerText;
+			if (text) {
+				await navigator.clipboard.writeText(text);
+				displayUserscriptMessage("Last response copied to clipboard!", false);
+				return;
+			}
+		}
+
+		displayUserscriptMessage("No content found to copy.");
+	}
+
+	async function handlePDFExport() {
+		const { jsPDF } = window.jspdf;
+		if (!jsPDF) {
+			displayUserscriptMessage("jsPDF library not loaded.");
+			return;
+		}
+
+		let content = "";
+		let title = "document";
+
+		// Reuse extraction logic (similar to download)
+		// --- METHOD 1: Monaco Editor ---
+		try {
+			if (typeof unsafeWindow !== 'undefined' && unsafeWindow.monaco) {
+				const editors = unsafeWindow.monaco.editor.getEditors();
+				const activeEditor = editors.find(e => {
+					const node = e.getContainerDomNode();
+					return document.body.contains(node) && node.offsetParent !== null;
+				});
+				if (activeEditor) {
+					const model = activeEditor.getModel();
+					if (model) {
+						content = model.getValue();
+						const titleEl = document.querySelector(GEMINI_CODE_CANVAS_TITLE_SELECTOR);
+						title = titleEl ? titleEl.textContent : "code_snippet";
+					}
+				}
+			}
+		} catch (e) { console.warn("Gemini Mod: Monaco access failed", e); }
+
+		// --- METHOD 2: Document Canvas ---
+		if (!content) {
+			const immersivePanel = document.querySelector(GEMINI_DOC_CANVAS_PANEL_SELECTOR);
+			const editorContent = immersivePanel?.querySelector(GEMINI_DOC_CANVAS_EDITOR_SELECTOR);
+			if (editorContent) {
+				content = editorContent.innerText;
+				const titleEl = immersivePanel.querySelector(GEMINI_DOC_CANVAS_TITLE_SELECTOR);
+				if (titleEl && titleEl.innerText.trim() !== "") {
+					title = titleEl.innerText.trim();
+				} else {
+					title = "document_canvas";
+				}
+			}
+		}
+
+		if (!content || content.trim() === "") {
+			displayUserscriptMessage("No active canvas content found to export.");
+			return;
+		}
+
+		// --- Content Sanitization ---
+		// 1. Replace Tabs with 4 spaces (jsPDF calculation often ignores tabs)
+		content = content.replace(/\t/g, '    ');
+		// 2. Replace non-breaking spaces with normal spaces
+		content = content.replace(/\u00A0/g, ' ');
+
+		try {
+			// User Request: Use fixed A4 format with pt units to ensure correct wrapping
+			const doc = new jsPDF({
+				unit: 'pt',
+				format: 'a4'
+			});
+
+			// A4 Size in pt is approx 595.28 x 841.89
+			// We can use doc.internal.pageSize.getWidth() to be sure
+			const pageWidth = doc.internal.pageSize.getWidth();
+			const pageHeight = doc.internal.pageSize.getHeight();
+
+			const margin = 40; // 40pt margin
+			const maxLineWidth = pageWidth - (margin * 2);
+			const lineHeight = 14; // pt line height for readability with courier
+			let cursorY = margin;
+
+			// Add Title
+			doc.setFontSize(14);
+			doc.setFont("helvetica", "bold");
+			doc.text(title, margin, cursorY);
+			cursorY += 20;
+
+			// Add Content
+			doc.setFontSize(10);
+			doc.setFont("courier", "normal"); // Monospace for code/text
+
+			// Split text to fit width
+			const lines = doc.splitTextToSize(content, maxLineWidth);
+
+			lines.forEach(line => {
+				if (cursorY > pageHeight - margin) {
+					doc.addPage();
+					cursorY = margin;
+				}
+				doc.text(line, margin, cursorY);
+				cursorY += lineHeight;
+			});
+
+			// Force Download via Blob
+			const pdfBlob = doc.output('blob');
+			const blobUrl = URL.createObjectURL(pdfBlob);
+			const link = document.createElement('a');
+			link.href = blobUrl;
+			link.download = `${determineFilename(title).replace(/\.[^/.]+$/, "")}.pdf`;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			URL.revokeObjectURL(blobUrl);
+
+		} catch (err) {
+			console.error("Gemini Mod: PDF Generation Error", err);
+			displayUserscriptMessage("Failed to generate PDF: " + err.message);
+		}
+	}
 
 
 	// --- Initialization ---
@@ -1133,12 +1604,12 @@
 			try {
 				createToolbar();
 				createSettingsPanel();
-                // Start folder initialization loop
-                const folderInitInterval = setInterval(() => {
-                    if (initializeFolders()) {
-                        clearInterval(folderInitInterval);
-                    }
-                }, 500);
+				// Start folder initialization loop
+				const folderInitInterval = setInterval(() => {
+					if (initializeFolders()) {
+						clearInterval(folderInitInterval);
+					}
+				}, 500);
 			} catch (e) {
 				console.error("Gemini Mod: Error during delayed initialization:", e);
 				displayUserscriptMessage("Error initializing toolbar. See console.");

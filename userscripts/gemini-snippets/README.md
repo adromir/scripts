@@ -18,10 +18,10 @@ This UserScript enhances the Google Gemini web interface (`gemini.google.com`) b
 * **📚 Dropdown Menus:** Organize snippets into multiple dropdown menus for better categorization (e.g., Actions, Translations, Custom Prompts).
 * **📋 Paste from Clipboard:** A dedicated button in the toolbar to paste content from your system clipboard directly into the Gemini input field.
 * **💾 Download Canvas Content:** A button in the toolbar that allows you to download the content of the currently active/visible Gemini "Canvas" (works for both code and document views).
-    * For code, it cleverly uses the Canvas's own "Copy to Clipboard" functionality.
-    * For documents, it extracts the text directly.
+    * **Text Download**: Saves as a plain text/code file.
+    * **PDF Export**: Saves as a formatted PDF file (A4 format, Courier font).
     * The filename is automatically derived from the Canvas title.
-    * It intelligently attempts to preserve existing file extensions from the Canvas title (e.g., `myScript.js` will be saved as `myScript.js`). If no extension is found, `.txt` is used as a default.
+    * Intelligently preserves file extensions for code (e.g., `script.js`).
 * **🖱️ Smart Insertion (for Snippets/Paste):** Automatically appends text to the input field, placing the cursor correctly.
 * **🌓 Dark Mode Aware:** The toolbar and settings panel are styled with a dark theme, fitting well with Gemini's dark mode.
 
