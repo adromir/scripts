@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.11
+// @version       0.0.12
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -541,13 +541,19 @@
 			const iconClosed = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 			iconClosed.setAttribute("viewBox", "0 0 24 24");
 			iconClosed.setAttribute("class", "folder-icon icon-closed");
-			iconClosed.innerHTML = `<path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" fill="${folder.color}"/>`;
+			const pathClosed = document.createElementNS("http://www.w3.org/2000/svg", "path");
+			pathClosed.setAttribute("d", "M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z");
+			pathClosed.setAttribute("fill", folder.color);
+			iconClosed.appendChild(pathClosed);
 
 			// SVG for Open Folder
 			const iconOpen = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 			iconOpen.setAttribute("viewBox", "0 0 24 24");
 			iconOpen.setAttribute("class", "folder-icon icon-open");
-			iconOpen.innerHTML = `<path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" fill="${folder.color}"/>`;
+			const pathOpen = document.createElementNS("http://www.w3.org/2000/svg", "path");
+			pathOpen.setAttribute("d", "M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z");
+			pathOpen.setAttribute("fill", folder.color);
+			iconOpen.appendChild(pathOpen);
 
 			iconWrapper.appendChild(iconClosed);
 			iconWrapper.appendChild(iconOpen);
