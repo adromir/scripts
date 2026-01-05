@@ -24,7 +24,7 @@ window.GeminiMod.drive = {
             return;
         }
 
-        const redirectUri = window.location.origin + window.location.pathname;
+        const redirectUri = window.location.origin + "/app";
         const scope = "https://www.googleapis.com/auth/drive.file";
         const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&state=gdrive_auth_v1&include_granted_scopes=true&prompt=consent`;
 
