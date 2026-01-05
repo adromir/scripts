@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.14
+// @version       0.0.15
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -226,21 +226,7 @@
 	}
 
 	// --- Setup Guide Modal ---
-	const SETUP_GUIDE_TEXT = `
-    <h3>Google Drive Sync Setup</h3>
-    <p>To sync explicitly via Google Drive, you need a <b>Google Cloud Client ID</b>. This is required because this script runs privately in your browser.</p>
-    <ol style="text-align: left; padding-left: 20px; line-height: 1.6;">
-        <li>Go to <a href="https://console.cloud.google.com/" target="_blank" style="color: #8ab4f8;">Google Cloud Console</a>.</li>
-        <li>Create a <b>New Project</b> (e.g., "Gemini Sync").</li>
-        <li>Go to <b>APIs & Services > Library</b> and enable the <b>Google Drive API</b>.</li>
-        <li>Go to <b>OAuth consent screen</b>. Select <b>External</b>. Add your email as a <b>Test User</b>.</li>
-        <li>Go to <b>Credentials > Create Credentials > OAuth client ID</b>.</li>
-        <li>Select <b>Web application</b>.</li>
-        <li>Add <code>https://gemini.google.com</code> to <b>Authorized JavaScript origins</b>.</li>
-        <li>Copy the <b>Client ID</b> and paste it in the settings here.</li>
-    </ol>
-    <p><i>Alternatively, use the <b>File Backup</b> option below to save/restore manually without setup.</i></p>
-    `;
+
 
 	function showSetupGuide() {
 		const overlay = document.createElement('div');
@@ -250,7 +236,70 @@
 		const dialogBox = document.createElement('div');
 		dialogBox.className = 'custom-dialog-box';
 		dialogBox.style.maxWidth = '600px';
-		dialogBox.innerHTML = SETUP_GUIDE_TEXT;
+
+		const h3 = document.createElement('h3');
+		h3.textContent = 'Google Drive Sync Setup';
+		dialogBox.appendChild(h3);
+
+		const p1 = document.createElement('p');
+		p1.innerHTML = ''; // Clear just in case, though new element is empty
+		p1.appendChild(document.createTextNode('To sync explicitly via Google Drive, you need a '));
+		const b1 = document.createElement('b');
+		b1.textContent = 'Google Cloud Client ID';
+		p1.appendChild(b1);
+		p1.appendChild(document.createTextNode('. This is required because this script runs privately in your browser.'));
+		dialogBox.appendChild(p1);
+
+		const ol = document.createElement('ol');
+		const steps = [
+			{ html: false, text: 'Go to ', link: { href: 'https://console.cloud.google.com/apis/credentials', text: 'Google Cloud Console' } },
+			{ html: false, text: 'Create a new project (or use existing).' },
+			{ html: false, parts: [{ text: 'Enable the ' }, { tag: 'b', text: 'Google Drive API' }, { text: '.' }] },
+			{ html: false, text: 'Create Credentials -> OAuth client ID.' },
+			{ html: false, parts: [{ text: 'Application type: ' }, { tag: 'b', text: 'Web application' }, { text: '.' }] },
+			{ html: false, parts: [{ text: 'Add authorized origins: ' }, { tag: 'code', text: 'https://gemini.google.com' }] },
+			{ html: false, parts: [{ text: 'Copy the ' }, { tag: 'b', text: 'Client ID' }, { text: ' and paste it in the settings here.' }] }
+		];
+
+		const createStep = (step) => {
+			const li = document.createElement('li');
+			if (step.link) {
+				li.appendChild(document.createTextNode(step.text));
+				const a = document.createElement('a');
+				a.href = step.link.href;
+				a.target = '_blank';
+				a.textContent = step.link.text;
+				li.appendChild(a);
+				li.appendChild(document.createTextNode('.'));
+			} else if (step.parts) {
+				step.parts.forEach(part => {
+					if (part.tag) {
+						const tag = document.createElement(part.tag);
+						tag.textContent = part.text;
+						li.appendChild(tag);
+					} else {
+						li.appendChild(document.createTextNode(part.text));
+					}
+				});
+			} else {
+				li.textContent = step.text;
+			}
+			return li;
+		};
+
+		steps.forEach(step => ol.appendChild(createStep(step)));
+		dialogBox.appendChild(ol);
+
+		const p2 = document.createElement('p');
+		const i = document.createElement('i');
+		i.appendChild(document.createTextNode('Alternatively, use the '));
+		const b2 = document.createElement('b');
+		b2.textContent = 'File Backup';
+		i.appendChild(b2);
+		i.appendChild(document.createTextNode(' option below to save/restore manually without setup.'));
+		p2.appendChild(i);
+		dialogBox.appendChild(p2);
+
 
 		const closeBtn = document.createElement('button');
 		closeBtn.className = 'custom-dialog-btn dialog-btn-cancel';
@@ -490,7 +539,7 @@
 
 		// Help Icon/Button
 		const helpBtn = document.createElement('button');
-		helpBtn.innerHTML = '📖'; // Book icon
+		helpBtn.textContent = '📖'; // Book icon
 		helpBtn.title = "Show Setup Instructions";
 		helpBtn.style.marginLeft = '10px';
 		helpBtn.style.background = 'transparent';
@@ -566,7 +615,7 @@
 		connectBtn.textContent = "Connect Google Drive";
 		connectBtn.className = 'custom-dialog-btn dialog-btn-confirm';
 		connectBtn.style.display = 'none';
-		connectBtn.addEventListener('click', GeminiMod.drive.initiateGoogleDriveAuth);
+		connectBtn.addEventListener('click', () => GeminiMod.drive.initiateGoogleDriveAuth());
 		tabDrive.appendChild(connectBtn);
 
 		// Backup Controls (Hidden until connected)
@@ -866,7 +915,9 @@
 		modal.id = 'gemini-mod-type-modal';
 		modal.className = 'custom-dialog-box';
 
-		modal.innerHTML = '<h3>Select Item Type</h3>';
+		const h3 = document.createElement('h3');
+		h3.textContent = 'Select Item Type';
+		modal.appendChild(h3);
 
 		const createTypeBtn = (type, label) => {
 			const btn = document.createElement('button');
@@ -983,10 +1034,22 @@
 		// Folder Icon (Open/Closed)
 		const iconWrapper = document.createElement('div');
 		iconWrapper.className = 'folder-icon-wrapper';
-		iconWrapper.innerHTML = `
-            <svg class="folder-icon icon-open" viewBox="0 0 24 24" fill="${folder.color}"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
-            <svg class="folder-icon icon-closed" viewBox="0 0 24 24" fill="${folder.color}"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
-        `;
+
+		const createIcon = (isOpen, color) => {
+			const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+			svg.classList.add("folder-icon", isOpen ? "icon-open" : "icon-closed");
+			svg.setAttribute("viewBox", "0 0 24 24");
+			svg.setAttribute("fill", color);
+			const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+			path.setAttribute("d", isOpen
+				? "M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+				: "M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z");
+			svg.appendChild(path);
+			return svg;
+		};
+
+		iconWrapper.appendChild(createIcon(true, folder.color));
+		iconWrapper.appendChild(createIcon(false, folder.color));
 		header.appendChild(iconWrapper);
 
 		const nameSpan = document.createElement('span');
@@ -999,7 +1062,7 @@
 
 		const settingsBtn = document.createElement('button');
 		settingsBtn.className = 'folder-options-btn';
-		settingsBtn.innerHTML = '⋮';
+		settingsBtn.textContent = '⋮';
 		settingsBtn.title = "Folder Options";
 		settingsBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
@@ -1171,6 +1234,24 @@
 				}
 			}
 		});
+
+		// 3. Ensure Main List is Sortable (so items can be dragged FROM it)
+		if (mainList && !mainList.classList.contains('gemini-mod-sortable-init')) {
+			mainList.classList.add('gemini-mod-sortable-init');
+			new Sortable(mainList, {
+				group: 'conversations',
+				animation: 150,
+				onAdd: async (evt) => {
+					// Item dragged BACK to main list
+					const item = evt.item;
+					const convoId = getConversationId(item);
+					if (convoId && conversationFolders[convoId]) {
+						delete conversationFolders[convoId];
+						await saveFolderConfiguration();
+					}
+				}
+			});
+		}
 	}
 
 	function listContains(list, node) {
@@ -1182,23 +1263,56 @@
 	// kept as is, but ensuring they use displayUserscriptMessage via helper
 
 	function getCanvasContent() {
-		const codePanel = document.querySelector(GEMINI_CODE_CANVAS_PANEL_SELECTOR);
-		const docPanel = document.querySelector(GEMINI_DOC_CANVAS_PANEL_SELECTOR);
+		// More robust detection of the panel
+		const panels = document.querySelectorAll('code-immersive-panel, immersive-panel, .immersive-panel-container');
 
-		if (codePanel) {
-			// ... (extraction logic simplified for brevity, assuming it works)
-			// For robust refactor, we keep original extraction logic
-			const codeBlock = codePanel.querySelector('code');
-			if (codeBlock) return { type: 'code', text: codeBlock.textContent, title: "gemini_code" };
-			// Fallback for newer Gemini Code blocks
-			const rawPre = codePanel.querySelector('pre');
-			if (rawPre) return { type: 'code', text: rawPre.textContent, title: "gemini_code" };
-		} else if (docPanel) {
-			const editor = docPanel.querySelector(GEMINI_DOC_CANVAS_EDITOR_SELECTOR);
-			const titleEl = docPanel.querySelector(GEMINI_DOC_CANVAS_TITLE_SELECTOR);
-			const title = titleEl ? titleEl.textContent.trim() : "GEMINI_DOCUMENT";
-			if (editor) return { type: 'text', text: editor.innerText, title: title };
+		for (const panel of panels) {
+			// Helper to check a root (Light or Shadow)
+			const checkRoot = (root) => {
+				if (!root) return null;
+
+				const titleEl = root.querySelector('h2.title-text, .title, span[data-test-id="title"]');
+				const title = titleEl ? titleEl.textContent.trim() : "gemini_artifact";
+
+				// 1. Try Monaco Editor (Gemini Canvas Code)
+				// Monaco uses virtualized rendering, but usually puts lines in .view-lines.
+				// This selector tries to find the main content area of monaco.
+				const monacoEditor = root.querySelector('.monaco-editor');
+				if (monacoEditor) {
+					const viewLines = monacoEditor.querySelector('.view-lines');
+					if (viewLines) {
+						// innerText of view-lines usually preserves formatting reasonably well for copy
+						return { type: 'code', text: viewLines.innerText, title: title };
+					}
+				}
+
+				// 2. Try Standard Code Extraction (pre/code)
+				const codeBlock = root.querySelector('code, pre');
+				if (codeBlock) {
+					return { type: 'code', text: codeBlock.textContent, title: title };
+				}
+
+				// 3. Try Document Extraction (ProseMirror / ContentEditable)
+				// Use the constant if available in scope, ensuring we match the defined selectors
+				const editor = root.querySelector(GEMINI_DOC_CANVAS_EDITOR_SELECTOR) || root.querySelector('[contenteditable="true"]');
+				if (editor) {
+					const docTitle = title === "gemini_artifact" ? "GEMINI_DOCUMENT" : title;
+					return { type: 'text', text: editor.innerText, title: docTitle };
+				}
+				return null;
+			};
+
+			// Check Shadow DOM first (most likely for custom elements)
+			if (panel.shadowRoot) {
+				const shadowResult = checkRoot(panel.shadowRoot);
+				if (shadowResult) return shadowResult;
+			}
+
+			// Check Light DOM
+			const lightResult = checkRoot(panel);
+			if (lightResult) return lightResult;
 		}
+
 		return null;
 	}
 
@@ -1219,7 +1333,13 @@
 	function handleGlobalCanvasDownload() {
 		const content = getCanvasContent();
 		if (content) {
-			const filename = (content.title || "gemini_export").replace(INVALID_FILENAME_CHARS_REGEX, "_") + "." + DEFAULT_DOWNLOAD_EXTENSION;
+			let filename = (content.title || "gemini_export").replace(INVALID_FILENAME_CHARS_REGEX, "_");
+
+			// Only append extension if it doesn't look like a filename already
+			if (!FILENAME_WITH_EXT_REGEX.test(filename)) {
+				filename += "." + DEFAULT_DOWNLOAD_EXTENSION;
+			}
+
 			downloadString(content.text, filename);
 		} else {
 			displayMessage("No active canvas content found to download.");
