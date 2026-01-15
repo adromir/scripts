@@ -1,0 +1,3 @@
+https://cdn.jsdelivr.net/gh/adromir/scripts@ef4eeb9/userscripts/gemini-snippets/gemini_mod_styles.js#sha256-bXQDm5Zj7+t4jYaFvTGvx/jUgo08EQmLdHve9CIRVoQ=
+https://cdn.jsdelivr.net/gh/adromir/scripts@ef4eeb9/userscripts/gemini-snippets/gemini_mod_utils.js#sha256-fuVgPZwMZpc70L35bG2B9oVdzD7YYYnQQp3xyJ/C/IM=
+https://cdn.jsdelivr.net/gh/adromir/scripts@ef4eeb9/userscripts/gemini-snippets/gemini_mod_drive.js#sha256-Sf+ByWwt60J4l8gAbxP7jzBd004RVfvwpWhkeyWUcmg=

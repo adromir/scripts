@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.17
+// @version       0.0.18
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -17,9 +17,9 @@
 // @grant         unsafeWindow
 // @require       https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js
 // @require       https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js
-// @require       https://cdn.jsdelivr.net/gh/adromir/scripts@ef4eeb9/userscripts/gemini-snippets/gemini_mod_styles.js
-// @require       https://cdn.jsdelivr.net/gh/adromir/scripts@ef4eeb9/userscripts/gemini-snippets/gemini_mod_utils.js
-// @require       https://cdn.jsdelivr.net/gh/adromir/scripts@ef4eeb9/userscripts/gemini-snippets/gemini_mod_drive.js
+// @require       https://cdn.jsdelivr.net/gh/adromir/scripts@ef4eeb9/userscripts/gemini-snippets/gemini_mod_styles.js#sha256-bXQDm5Zj7+t4jYaFvTGvx/jUgo08EQmLdHve9CIRVoQ=
+// @require       https://cdn.jsdelivr.net/gh/adromir/scripts@ef4eeb9/userscripts/gemini-snippets/gemini_mod_utils.js#sha256-fuVgPZwMZpc70L35bG2B9oVdzD7YYYnQQp3xyJ/C/IM=
+// @require       https://cdn.jsdelivr.net/gh/adromir/scripts@ef4eeb9/userscripts/gemini-snippets/gemini_mod_drive.js#sha256-Sf+ByWwt60J4l8gAbxP7jzBd004RVfvwpWhkeyWUcmg=
 // @downloadURL   https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // @updateURL     https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // ==/UserScript==
