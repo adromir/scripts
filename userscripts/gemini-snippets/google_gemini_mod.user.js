@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.19
+// @version       0.0.20
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -106,6 +106,8 @@
 	const showPrompt = GeminiMod.utils.showCustomPromptDialog;
 	const showColorPicker = GeminiMod.utils.showColorPickerDialog;
 	const injectCSS = GeminiMod.utils.injectCustomCSS;
+	const getReactProps = GeminiMod.utils.getReactProps;
+	const getClassProperty = GeminiMod.utils.getClassProperty;
 
 	// --- Text Insertion Logic ---
 
@@ -1263,54 +1265,77 @@
 	// kept as is, but ensuring they use displayUserscriptMessage via helper
 
 	function getCanvasContent() {
-		// More robust detection of the panel
-		const panels = document.querySelectorAll('code-immersive-panel, immersive-panel, .immersive-panel-container');
+		// 1. Try ProseMirror (Document Editor) - Access internal ProseMirror view
+		// This is the most reliable way for docs as it bypasses virtualization
+		const pmEditor = document.querySelector('.ProseMirror');
+		if (pmEditor && pmEditor.pmView) {
+			const titleEl = document.querySelector(GEMINI_DOC_CANVAS_TITLE_SELECTOR);
+			const title = titleEl ? titleEl.textContent.trim() : "GEMINI_DOCUMENT";
+			try {
+				const text = pmEditor.pmView.state.doc.textContent;
+				return { type: 'text', text: text, title: title };
+			} catch (e) {
+				console.warn("Gemini Mod: Failed to read ProseMirror state", e);
+			}
+		}
 
+		// 2. Try Code Canvas (Monaco / React)
+		const codePanels = document.querySelectorAll(GEMINI_CODE_CANVAS_PANEL_SELECTOR);
+		for (const panel of codePanels) {
+			const titleEl = panel.querySelector('h2.title-text');
+			const title = titleEl ? titleEl.textContent.trim() : "gemini_code";
+
+			// Attempt A: Get React Props from the panel itself
+			const props = getReactProps(panel);
+			if (props) {
+				// Inspect likely props for the code content.
+				// Common patterns in Gemini: 'code', 'blob.content', 'initialCode'
+				if (props.code) return { type: 'code', text: props.code, title: title };
+				const blobContent = getClassProperty(props, 'blob.content');
+				if (blobContent) return { type: 'code', text: blobContent, title: title };
+			}
+
+			// Attempt B: Look for monaco-editor container and check its React props
+			// Sometimes the value is passed to the editor wrapper
+			const monacoContainer = panel.querySelector('.monaco-editor');
+			if (monacoContainer) {
+				// Traverse up slightly to find the react component holding the model if possible,
+				// or check the container's props.
+				// Note: direct monaco model access via unsafeWindow.monaco is risky due to sandboxing.
+			}
+		}
+
+		// 3. Fallback: DOM Text Extraction (Current/Legacy behavior)
+		// This will only get visible text, but it's better than nothing.
+		const panels = document.querySelectorAll('code-immersive-panel, immersive-panel, .immersive-panel-container');
 		for (const panel of panels) {
-			// Helper to check a root (Light or Shadow)
 			const checkRoot = (root) => {
 				if (!root) return null;
-
-				const titleEl = root.querySelector('h2.title-text, .title, span[data-test-id="title"]');
+				const titleEl = root.querySelector('h2.title-text, .title');
 				const title = titleEl ? titleEl.textContent.trim() : "gemini_artifact";
 
-				// 1. Try Monaco Editor (Gemini Canvas Code)
-				// Monaco uses virtualized rendering, but usually puts lines in .view-lines.
-				// This selector tries to find the main content area of monaco.
+				// Monaco fallback
 				const monacoEditor = root.querySelector('.monaco-editor');
 				if (monacoEditor) {
 					const viewLines = monacoEditor.querySelector('.view-lines');
-					if (viewLines) {
-						// innerText of view-lines usually preserves formatting reasonably well for copy
-						return { type: 'code', text: viewLines.innerText, title: title };
-					}
+					if (viewLines) return { type: 'code', text: viewLines.innerText, title: title };
 				}
-
-				// 2. Try Standard Code Extraction (pre/code)
+				// Standard code
 				const codeBlock = root.querySelector('code, pre');
-				if (codeBlock) {
-					return { type: 'code', text: codeBlock.textContent, title: title };
-				}
-
-				// 3. Try Document Extraction (ProseMirror / ContentEditable)
-				// Use the constant if available in scope, ensuring we match the defined selectors
+				if (codeBlock) return { type: 'code', text: codeBlock.textContent, title: title };
+				// Doc fallback
 				const editor = root.querySelector(GEMINI_DOC_CANVAS_EDITOR_SELECTOR) || root.querySelector('[contenteditable="true"]');
-				if (editor) {
-					const docTitle = title === "gemini_artifact" ? "GEMINI_DOCUMENT" : title;
-					return { type: 'text', text: editor.innerText, title: docTitle };
-				}
+				if (editor) return { type: 'text', text: editor.innerText, title: title };
+
 				return null;
 			};
 
-			// Check Shadow DOM first (most likely for custom elements)
 			if (panel.shadowRoot) {
-				const shadowResult = checkRoot(panel.shadowRoot);
-				if (shadowResult) return shadowResult;
+				const res = checkRoot(panel.shadowRoot);
+				if (res) return res;
 			}
-
-			// Check Light DOM
-			const lightResult = checkRoot(panel);
-			if (lightResult) return lightResult;
+			const res = checkRoot(panel);
+			if (res) return res;
 		}
 
 		return null;

@@ -152,5 +152,23 @@ window.GeminiMod.utils = {
             style.textContent = window.GeminiMod.styles;
             document.head.appendChild(style);
         }
+    },
+
+    /**
+     * Attempts to retrieve the internal React props of a DOM element.
+     * Useful for extracting data from virtualized components like Monaco Editor.
+     */
+    getReactProps: function (element) {
+        if (!element) return null;
+        const key = Object.keys(element).find(k => k.startsWith('__reactProps'));
+        return key ? element[key] : null;
+    },
+
+    /**
+     * Safely accesses a property path on an object (like lodash.get).
+     */
+    getClassProperty: function (obj, prop) {
+        if (!obj) return null;
+        return prop.split('.').reduce((o, i) => (o ? o[i] : null), obj);
     }
 };
