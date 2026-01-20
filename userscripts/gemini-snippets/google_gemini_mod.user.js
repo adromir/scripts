@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.21
+// @version       0.0.22
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -1266,10 +1266,65 @@
 
 	function getCanvasContent() {
 		console.log("Gemini Mod: Starting Content Extraction (Accessing via unsafeWindow)...");
-		// Access raw DOM via unsafeWindow to see internal properties
+		// Access raw DOM via unsafeWindow
 		const rawDoc = unsafeWindow.document;
 
-		// 1. Try ProseMirror (Document Editor)
+		// 1. Try Monaco Editor directly via Global API (Most Robust for Code)
+		if (unsafeWindow.monaco && unsafeWindow.monaco.editor) {
+			console.log("Gemini Mod: Found Global Monaco API. Checking editors...");
+			try {
+				const editors = unsafeWindow.monaco.editor.getEditors();
+				// Priority 1: Editor inside code-immersive-panel (Code Canvas)
+				let canvasEditor = editors.find(e => {
+					let node = e.getContainerDomNode();
+					// Handle Xray wrapper
+					if (node.wrappedJSObject) node = node.wrappedJSObject;
+					return node.closest('code-immersive-panel') && rawDoc.body.contains(node) && node.offsetParent !== null;
+				});
+
+				// Priority 2: Fallback to any visible editor
+				if (!canvasEditor) {
+					canvasEditor = editors.find(e => {
+						let node = e.getContainerDomNode();
+						if (node.wrappedJSObject) node = node.wrappedJSObject;
+						return rawDoc.body.contains(node) && node.offsetParent !== null;
+					});
+				}
+
+				if (canvasEditor) {
+					console.log("Gemini Mod: Found Active Monaco Editor.");
+					const model = canvasEditor.getModel();
+					if (model) {
+						let title = "code_snippet";
+						// Retrieve title
+						let node = canvasEditor.getContainerDomNode();
+						if (node.wrappedJSObject) node = node.wrappedJSObject;
+
+						const parentPanel = node.closest('code-immersive-panel');
+						if (parentPanel) {
+							const header = parentPanel.querySelector('h2, [data-test-id="canvas-title"], .title, .filename');
+							if (header && header.textContent.trim()) {
+								title = header.textContent.trim();
+							}
+						}
+
+						if (title === "code_snippet") {
+							const broadTitle = rawDoc.querySelector('code-immersive-panel h2');
+							if (broadTitle && broadTitle.textContent.trim()) {
+								title = broadTitle.textContent.trim();
+							}
+						}
+
+						console.log(`Gemini Mod: Extracted ${model.getValue().length} chars from Monaco.`);
+						return { type: 'code', text: model.getValue(), title: title };
+					}
+				}
+			} catch (e) {
+				console.warn("Gemini Mod: Failed to access Monaco API", e);
+			}
+		}
+
+		// 2. Try ProseMirror (Document Editor)
 		const pmEditor = rawDoc.querySelector('.ProseMirror');
 		if (pmEditor) {
 			console.log("Gemini Mod: Found ProseMirror editor (raw).");
@@ -1283,77 +1338,6 @@
 				} catch (e) {
 					console.warn("Gemini Mod: Failed to read ProseMirror state", e);
 				}
-			}
-		}
-
-		// 2. Try Code Canvas (Monaco / React)
-		const codePanels = rawDoc.querySelectorAll(GEMINI_CODE_CANVAS_PANEL_SELECTOR);
-		console.log(`Gemini Mod: Found ${codePanels.length} code panels (raw).`);
-
-		for (const panel of codePanels) {
-			const titleEl = panel.querySelector('h2.title-text');
-			const title = titleEl ? titleEl.textContent.trim() : "gemini_code";
-
-
-			// Helper to check a potential root (light DOM or Shadow DOM)
-			const checkScope = (scope) => {
-				// Attempt A: Get React Props from the panel/scope itself
-				let props = getReactProps(scope); // Might be the host element
-
-				// Try to find props on the host if we are inside a shadow root
-				if (!props && scope.host) {
-					props = getReactProps(scope.host);
-				}
-
-				if (props) {
-					// Debug logs
-					console.log("Gemini Mod: Props found in scope. Keys:", Object.keys(props));
-					if (props.code) return { type: 'code', text: props.code, title: title };
-					const blobContent = getClassProperty(props, 'blob.content');
-					if (blobContent) return { type: 'code', text: blobContent, title: title };
-				}
-
-				// Attempt B: Look for monaco-editor container INSIDE this scope
-				const monacoContainer = scope.querySelector('.monaco-editor');
-				if (monacoContainer) {
-					const editorProps = getReactProps(monacoContainer);
-					if (editorProps) {
-						console.log("Gemini Mod: Editor Props found.", Object.keys(editorProps));
-						if (editorProps.value) return { type: 'code', text: editorProps.value, title: title };
-						const model = getClassProperty(editorProps, 'model');
-						if (model && model.getValue) return { type: 'code', text: model.getValue(), title: title };
-					}
-
-					// Traverse parents for Fiber/Props if not on container
-					let parent = monacoContainer.parentElement;
-					let attempts = 0;
-					while (parent && attempts < 5) {
-						const pProps = getReactProps(parent);
-						if (pProps && (pProps.value || pProps.code)) {
-							console.log(`Gemini Mod: Found props on Parent[${attempts}]`);
-							const val = pProps.value || pProps.code;
-							if (val) return { type: 'code', text: val, title: title };
-						}
-						// Stop if we hit the shadow root 
-						if (parent === scope) break;
-						parent = parent.parentElement;
-						attempts++;
-					}
-				}
-				return null;
-			};
-
-			// 1. Check Light DOM
-			let result = checkScope(panel);
-			if (result) return result;
-
-			// 2. Check Shadow DOM (if exists)
-			if (panel.shadowRoot) {
-				console.log("Gemini Mod: Checking Shadow DOM for code panel...");
-				// Handle Firefox Xray for shadowRoot if needed (using unsafeWindow, usually auto-unwrapped if we access property, 
-				// but simpler to just try accessing it. If panel is from unsafeWindow, shadowRoot is also raw).
-				result = checkScope(panel.shadowRoot);
-				if (result) return result;
 			}
 		}
 
