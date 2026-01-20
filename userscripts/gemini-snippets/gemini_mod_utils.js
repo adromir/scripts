@@ -160,18 +160,25 @@ window.GeminiMod.utils = {
      */
     getReactProps: function (element) {
         if (!element) return null;
-        // Try to find the key in the element itself
-        // Note: In some sandboxes (like Greasemonkey), you might need to access element.wrappedJSObject
-        // But since we will switch to unsafeWindow for querying, 'element' should be the raw object.
-        const keys = Object.keys(element);
+
+        // Firefox/Greasemonkey Xray Wrapper Handling
+        // If the object is wrapped, we need to access the raw object to see 'expando' properties like __reactProps
+        let target = element;
+        // Check if wrappedJSObject exists (Firefox/Gecko specific)
+        if (typeof element.wrappedJSObject !== 'undefined') {
+            target = element.wrappedJSObject;
+        }
+
+        // Use Object.keys on the target (raw or wrapped)
+        const keys = Object.keys(target);
 
         // 1. Check for standard Props key
         let key = keys.find(k => k.startsWith('__reactProps'));
-        if (key) return element[key];
+        if (key) return target[key];
 
         // 2. Check for Fiber key (internal React state)
         key = keys.find(k => k.startsWith('__reactFiber'));
-        if (key && element[key]) return element[key].memoizedProps;
+        if (key && target[key]) return target[key].memoizedProps;
 
         return null;
     },
