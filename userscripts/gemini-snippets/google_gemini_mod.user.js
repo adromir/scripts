@@ -1294,43 +1294,66 @@
 			const titleEl = panel.querySelector('h2.title-text');
 			const title = titleEl ? titleEl.textContent.trim() : "gemini_code";
 
-			// Attempt A: Get React Props from the panel itself
-			const props = getReactProps(panel);
-			// Debug logs
-			if (props) console.log("Gemini Mod: Panel Props found. Keys:", Object.keys(props));
-			else console.log("Gemini Mod: No React Props on panel.");
 
-			if (props) {
-				if (props.code) return { type: 'code', text: props.code, title: title };
-				const blobContent = getClassProperty(props, 'blob.content');
-				if (blobContent) return { type: 'code', text: blobContent, title: title };
-			}
+			// Helper to check a potential root (light DOM or Shadow DOM)
+			const checkScope = (scope) => {
+				// Attempt A: Get React Props from the panel/scope itself
+				let props = getReactProps(scope); // Might be the host element
 
-			// Attempt B: Look for monaco-editor container
-			const monacoContainer = panel.querySelector('.monaco-editor');
-			if (monacoContainer) {
-				const editorProps = getReactProps(monacoContainer);
-				if (editorProps) {
-					console.log("Gemini Mod: Editor Props found.", Object.keys(editorProps));
-					// Check common locations for text value in editor props
-					if (editorProps.value) return { type: 'code', text: editorProps.value, title: title };
-					const model = getClassProperty(editorProps, 'model');
-					if (model && model.getValue) return { type: 'code', text: model.getValue(), title: title };
+				// Try to find props on the host if we are inside a shadow root
+				if (!props && scope.host) {
+					props = getReactProps(scope.host);
 				}
 
-				// Traverse parents for Fiber/Props if not on container
-				let parent = monacoContainer.parentElement;
-				let attempts = 0;
-				while (parent && attempts < 5) {
-					const pProps = getReactProps(parent);
-					if (pProps && (pProps.value || pProps.code)) {
-						console.log(`Gemini Mod: Found props on Parent[${attempts}]`);
-						const val = pProps.value || pProps.code;
-						if (val) return { type: 'code', text: val, title: title };
+				if (props) {
+					// Debug logs
+					console.log("Gemini Mod: Props found in scope. Keys:", Object.keys(props));
+					if (props.code) return { type: 'code', text: props.code, title: title };
+					const blobContent = getClassProperty(props, 'blob.content');
+					if (blobContent) return { type: 'code', text: blobContent, title: title };
+				}
+
+				// Attempt B: Look for monaco-editor container INSIDE this scope
+				const monacoContainer = scope.querySelector('.monaco-editor');
+				if (monacoContainer) {
+					const editorProps = getReactProps(monacoContainer);
+					if (editorProps) {
+						console.log("Gemini Mod: Editor Props found.", Object.keys(editorProps));
+						if (editorProps.value) return { type: 'code', text: editorProps.value, title: title };
+						const model = getClassProperty(editorProps, 'model');
+						if (model && model.getValue) return { type: 'code', text: model.getValue(), title: title };
 					}
-					parent = parent.parentElement;
-					attempts++;
+
+					// Traverse parents for Fiber/Props if not on container
+					let parent = monacoContainer.parentElement;
+					let attempts = 0;
+					while (parent && attempts < 5) {
+						const pProps = getReactProps(parent);
+						if (pProps && (pProps.value || pProps.code)) {
+							console.log(`Gemini Mod: Found props on Parent[${attempts}]`);
+							const val = pProps.value || pProps.code;
+							if (val) return { type: 'code', text: val, title: title };
+						}
+						// Stop if we hit the shadow root 
+						if (parent === scope) break;
+						parent = parent.parentElement;
+						attempts++;
+					}
 				}
+				return null;
+			};
+
+			// 1. Check Light DOM
+			let result = checkScope(panel);
+			if (result) return result;
+
+			// 2. Check Shadow DOM (if exists)
+			if (panel.shadowRoot) {
+				console.log("Gemini Mod: Checking Shadow DOM for code panel...");
+				// Handle Firefox Xray for shadowRoot if needed (using unsafeWindow, usually auto-unwrapped if we access property, 
+				// but simpler to just try accessing it. If panel is from unsafeWindow, shadowRoot is also raw).
+				result = checkScope(panel.shadowRoot);
+				if (result) return result;
 			}
 		}
 
