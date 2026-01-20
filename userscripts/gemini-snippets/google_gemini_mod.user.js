@@ -1265,48 +1265,73 @@
 	// kept as is, but ensuring they use displayUserscriptMessage via helper
 
 	function getCanvasContent() {
-		// 1. Try ProseMirror (Document Editor) - Access internal ProseMirror view
-		// This is the most reliable way for docs as it bypasses virtualization
+		console.log("Gemini Mod: Starting Content Extraction...");
+
+		// 1. Try ProseMirror (Document Editor)
 		const pmEditor = document.querySelector('.ProseMirror');
-		if (pmEditor && pmEditor.pmView) {
-			const titleEl = document.querySelector(GEMINI_DOC_CANVAS_TITLE_SELECTOR);
-			const title = titleEl ? titleEl.textContent.trim() : "GEMINI_DOCUMENT";
-			try {
-				const text = pmEditor.pmView.state.doc.textContent;
-				return { type: 'text', text: text, title: title };
-			} catch (e) {
-				console.warn("Gemini Mod: Failed to read ProseMirror state", e);
+		if (pmEditor) {
+			console.log("Gemini Mod: Found ProseMirror editor.");
+			if (pmEditor.pmView) {
+				console.log("Gemini Mod: Found pmView. Extracting text...");
+				const titleEl = document.querySelector(GEMINI_DOC_CANVAS_TITLE_SELECTOR);
+				const title = titleEl ? titleEl.textContent.trim() : "GEMINI_DOCUMENT";
+				try {
+					const text = pmEditor.pmView.state.doc.textContent;
+					return { type: 'text', text: text, title: title };
+				} catch (e) {
+					console.warn("Gemini Mod: Failed to read ProseMirror state", e);
+				}
+			} else {
+				console.log("Gemini Mod: pmView NOT found on ProseMirror element.");
 			}
 		}
 
 		// 2. Try Code Canvas (Monaco / React)
 		const codePanels = document.querySelectorAll(GEMINI_CODE_CANVAS_PANEL_SELECTOR);
+		console.log(`Gemini Mod: Found ${codePanels.length} code panels.`);
+
 		for (const panel of codePanels) {
 			const titleEl = panel.querySelector('h2.title-text');
 			const title = titleEl ? titleEl.textContent.trim() : "gemini_code";
 
 			// Attempt A: Get React Props from the panel itself
 			const props = getReactProps(panel);
+			console.log("Gemini Mod: Panel Props:", props);
+
 			if (props) {
-				// Inspect likely props for the code content.
-				// Common patterns in Gemini: 'code', 'blob.content', 'initialCode'
 				if (props.code) return { type: 'code', text: props.code, title: title };
 				const blobContent = getClassProperty(props, 'blob.content');
 				if (blobContent) return { type: 'code', text: blobContent, title: title };
+				console.log("Gemini Mod: Props found but no 'code' or 'blob.content'. Keys:", Object.keys(props));
+			} else {
+				console.log("Gemini Mod: No React Props found on panel.");
 			}
 
-			// Attempt B: Look for monaco-editor container and check its React props
-			// Sometimes the value is passed to the editor wrapper
+			// Attempt B: Look for monaco-editor container
 			const monacoContainer = panel.querySelector('.monaco-editor');
 			if (monacoContainer) {
-				// Traverse up slightly to find the react component holding the model if possible,
-				// or check the container's props.
-				// Note: direct monaco model access via unsafeWindow.monaco is risky due to sandboxing.
+				console.log("Gemini Mod: Found .monaco-editor container.");
+				const editorProps = getReactProps(monacoContainer);
+				console.log("Gemini Mod: Editor Container Props:", editorProps);
+				if (editorProps) console.log("Gemini Mod: Editor keys:", Object.keys(editorProps));
+				// Try to find a parent with props if the container doesn't have them
+				let parent = monacoContainer.parentElement;
+				let attempts = 0;
+				while (parent && attempts < 3) {
+					const pProps = getReactProps(parent);
+					if (pProps) {
+						console.log(`Gemini Mod: Parent[${attempts}] Props:`, Object.keys(pProps));
+						if (pProps.value) return { type: 'code', text: pProps.value, title: title };
+						// Add more checks here if we see interesting keys in logs
+					}
+					parent = parent.parentElement;
+					attempts++;
+				}
 			}
 		}
 
-		// 3. Fallback: DOM Text Extraction (Current/Legacy behavior)
-		// This will only get visible text, but it's better than nothing.
+		// 3. Fallback
+		console.log("Gemini Mod: specific extractors failed. Falling back to DOM text.");
 		const panels = document.querySelectorAll('code-immersive-panel, immersive-panel, .immersive-panel-container');
 		for (const panel of panels) {
 			const checkRoot = (root) => {
@@ -1314,16 +1339,13 @@
 				const titleEl = root.querySelector('h2.title-text, .title');
 				const title = titleEl ? titleEl.textContent.trim() : "gemini_artifact";
 
-				// Monaco fallback
 				const monacoEditor = root.querySelector('.monaco-editor');
 				if (monacoEditor) {
 					const viewLines = monacoEditor.querySelector('.view-lines');
 					if (viewLines) return { type: 'code', text: viewLines.innerText, title: title };
 				}
-				// Standard code
 				const codeBlock = root.querySelector('code, pre');
 				if (codeBlock) return { type: 'code', text: codeBlock.textContent, title: title };
-				// Doc fallback
 				const editor = root.querySelector(GEMINI_DOC_CANVAS_EDITOR_SELECTOR) || root.querySelector('[contenteditable="true"]');
 				if (editor) return { type: 'text', text: editor.innerText, title: title };
 
