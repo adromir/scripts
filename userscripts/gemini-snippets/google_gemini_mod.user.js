@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.22
+// @version       0.0.23
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -1425,40 +1425,55 @@
 			return;
 		}
 
-		const { jsPDF } = window.jspdf;
-		const doc = new jsPDF();
+		try {
+			const { jsPDF } = window.jspdf;
+			// Use 'pt' units for consistency with bridge.js logic
+			const doc = new jsPDF({ unit: 'pt', format: 'a4' });
 
-		const margins = { top: 20, bottom: 20, left: 20, right: 20 };
-		const pageWidth = doc.internal.pageSize.getWidth();
-		const pageHeight = doc.internal.pageSize.getHeight();
-		const maxLineWidth = pageWidth - margins.left - margins.right;
+			const margins = { top: 40, bottom: 40, left: 40, right: 40 };
+			const pageWidth = doc.internal.pageSize.getWidth();
+			const pageHeight = doc.internal.pageSize.getHeight();
+			const maxLineWidth = pageWidth - margins.left - margins.right;
+			const lineHeight = 12;
 
-		doc.setFont("courier", "normal");
-		doc.setFontSize(10);
+			// sanitize content: replace tabs with spaces for correct width calc
+			const textContent = (content.text || "")
+				.replace(/\t/g, '    ')
+				.replace(/\u00A0/g, ' ');
 
-		let y = margins.top;
-		if (content.title) {
+			let title = content.title || "gemini_export";
+
+
+			// Title
 			doc.setFont("helvetica", "bold");
 			doc.setFontSize(14);
-			doc.text(content.title, margins.left, y);
-			y += 10;
+			doc.text(title, margins.left, margins.top);
+
+			let y = margins.top + 25;
+
+			// Content
 			doc.setFont("courier", "normal");
 			doc.setFontSize(10);
+
+			// Split text to fit width
+			const lines = doc.splitTextToSize(textContent, maxLineWidth);
+
+			lines.forEach(line => {
+				if (y > pageHeight - margins.bottom) {
+					doc.addPage();
+					y = margins.top;
+				}
+				doc.text(line, margins.left, y);
+				y += lineHeight;
+			});
+
+			const filename = title.replace(INVALID_FILENAME_CHARS_REGEX, "_") + ".pdf";
+			doc.save(filename);
+
+		} catch (e) {
+			console.error("Gemini Mod: PDF Generation Failed", e);
+			displayMessage("PDF Generation Failed: " + e.message);
 		}
-
-		const lines = doc.splitTextToSize(content.text, maxLineWidth);
-
-		lines.forEach(line => {
-			if (y + 10 > pageHeight - margins.bottom) {
-				doc.addPage();
-				y = margins.top;
-			}
-			doc.text(line, margins.left, y);
-			y += 5; // Line height
-		});
-
-		const filename = (content.title || "gemini_export").replace(INVALID_FILENAME_CHARS_REGEX, "_") + ".pdf";
-		doc.save(filename);
 	}
 
 
