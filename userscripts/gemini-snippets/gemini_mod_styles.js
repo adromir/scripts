@@ -102,28 +102,20 @@ window.GeminiMod.styles = `
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 16px 0 24px; /* Matches Gemini standard header indentation */
-        height: var(--mat-expansion-header-collapsed-state-height, 48px);
+        padding: 8px 16px; /* Left-aligned like native sections */
         cursor: pointer;
         user-select: none;
         -webkit-user-select: none;
-        color: var(--mat-optgroup-label-text-color, #c4c7c5);
-        border-radius: 0 24px 24px 0;
-        margin-right: 16px;
         transition: background-color 0.2s ease;
-    }
-    .folder-section-label {
-        font-family: var(--mat-optgroup-label-text-font, "Google Sans Flex", "Google Sans", sans-serif);
-        font-size: var(--mat-optgroup-label-text-size, 0.875rem);
-        font-weight: var(--mat-optgroup-label-text-weight, 500);
-        line-height: var(--mat-optgroup-label-text-line-height, 1.25rem);
+        margin-right: 16px; /* Leave space for hover shape */
+        border-radius: 0 24px 24px 0;
     }
     .folder-section-chevron {
         font-size: 1.2rem;
-        color: var(--mat-expansion-header-indicator-color, #c4c7c5);
         transition: transform 0.2s ease;
         display: inline-block;
         transform: rotate(0deg);
+        color: var(--mat-expansion-header-indicator-color, #c4c7c5);
     }
     #folder-section-header.collapsed .folder-section-chevron {
         transform: rotate(-90deg);
@@ -139,18 +131,17 @@ window.GeminiMod.styles = `
         transition: max-height 0.25s ease-in-out;
     }
     #folder-section-body.collapsed {
-        max-height: 0;
+        max-height: 0 !important;
     }
 
     #add-folder-btn {
         display: flex;
         align-items: center;
         width: 100%;
-        padding: 0 16px 0 24px;
-        height: var(--mat-list-list-item-one-line-container-height, 48px);
+        padding: 8px 16px; /* Left-aligned like native sections */
         background: transparent;
         border: none;
-        color: var(--mat-list-list-item-label-text-color, #e3e3e3);
+        color: inherit;
         border-radius: 0 24px 24px 0;
         margin-right: 16px;
         cursor: pointer;
@@ -162,13 +153,8 @@ window.GeminiMod.styles = `
     }
     .add-folder-icon {
         font-size: 20px;
-        margin-right: 16px;
-        color: var(--mat-list-list-item-leading-icon-color, #c4c7c5);
-    }
-    .add-folder-label {
-        font-family: var(--mat-list-list-item-label-text-font, "Google Sans Flex", "Google Sans", sans-serif);
-        font-size: var(--mat-list-list-item-label-text-size, 1rem);
-        font-weight: var(--mat-list-list-item-label-text-weight, 400);
+        margin-right: 12px;
+        color: inherit;
     }
 
     #folder-container { padding-bottom: 4px; }
