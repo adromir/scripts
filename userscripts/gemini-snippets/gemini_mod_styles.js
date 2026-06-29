@@ -91,70 +91,173 @@ window.GeminiMod.styles = `
     }
 
     /* --- Folder UI Styles --- */
-    #folder-ui-container { padding: 0 8px; }
-    #folder-container { padding-bottom: 8px; border-bottom: 1px solid var(--surface-3); }
-    .folder { margin-bottom: 5px; border-radius: 8px; overflow: hidden; }
-    .folder-header { display: flex; align-items: center; padding: 10px; cursor: pointer; background-color: var(--surface-2); position: relative; }
-    .folder-header:hover { background-color: var(--surface-3); }
-    
-    /* Folder Icon Styles */
-    .folder-icon-wrapper { margin-right: 10px; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
-    .folder-icon { width: 20px; height: 20px; transition: transform 0.2s ease; }
-    .folder.closed .icon-open { display: none; }
-    .folder:not(.closed) .icon-closed { display: none; }
-    
-    .folder-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'Roboto', Arial, sans-serif !important; font-weight: 500; }
-    .folder-controls { display: flex; align-items: center; margin-left: 5px; }
-    .folder-toggle-icon { transition: transform 0.2s; margin-right: 5px; font-size: 0.8em; opacity: 0.7; }
-    .folder.closed .folder-toggle-icon { transform: rotate(-90deg); }
-    .folder-options-btn { background: none; border: none; color: inherit; cursor: pointer; padding: 2px 4px; border-radius: 4px; margin-left: 4px; font-size: 1.2em; line-height: 1; }
-    .folder-options-btn:hover { background-color: rgba(255,255,255,0.1); }
-    
-    /* List View Styles for Content */
-    .folder-content { 
-        max-height: 500px; 
-        overflow-y: auto; 
-        transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out; 
-        background-color: transparent; /* Transparent to let items stand out */
-        min-height: 10px; 
-        display: flex;
-        flex-direction: column;
-        gap: 4px; /* Gap between items */
-        padding: 4px 0;
-    }
-    .folder.closed .folder-content { max-height: 0; padding-top: 0; padding-bottom: 0; min-height: 0; overflow: hidden; }
-    
-    /* Style the conversation items within the folder to look like list items */
-    .folder-content .conversation-items-container {
-        background-color: var(--surface-1);
-        border-radius: 6px;
-        margin: 0 4px;
-        padding: 2px 0;
-        border: 1px solid var(--surface-4);
-        transition: background-color 0.2s;
-        display: flex;
-        align-items: center;
-    }
-    .folder-content .conversation-items-container::before {
-        content: "•";
-        margin: 0 6px 0 10px;
-        color: var(--on-surface);
-        font-size: 1.2em;
-        line-height: 1;
-    }
-    .folder-content .conversation-items-container:hover {
-        background-color: var(--surface-2);
-        border-color: var(--surface-5);
+    /* Match Gemini sidebar design: Google Sans font, Material colors, proper spacing */
+    #folder-ui-container {
+        padding: 0;
+        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
     }
 
-    #add-folder-btn { width: 100%; margin: 8px 0; padding: 10px; border: none; background-color: var(--primary-surface); color: var(--on-primary-surface); border-radius: 8px; cursor: pointer; font-weight: 500; }
-    #add-folder-btn:hover { opacity: 0.9; }
+    /* --- Section header: matches "Notebooks" / "Letzte Unterhaltungen" style --- */
+    #folder-section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px 4px 16px;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    .folder-section-label {
+        font-size: 0.875rem;
+        font-weight: 400;
+        line-height: 1.25rem;
+        color: #c4c7c5;
+        letter-spacing: 0;
+    }
+    .folder-section-chevron {
+        font-size: 1.1rem;
+        color: #c4c7c5;
+        transition: transform 0.2s ease;
+        display: inline-block;
+        transform: rotate(0deg);
+    }
+    #folder-section-header.collapsed .folder-section-chevron {
+        transform: rotate(-90deg);
+    }
+    #folder-section-header:hover .folder-section-label,
+    #folder-section-header:hover .folder-section-chevron {
+        color: #e3e3e3;
+    }
+
+    /* --- Collapsible body --- */
+    #folder-section-body {
+        overflow: hidden;
+        max-height: 2000px;
+        transition: max-height 0.25s ease-in-out;
+    }
+    #folder-section-body.collapsed {
+        max-height: 0;
+    }
+
+    #folder-container { padding-bottom: 4px; }
+    /* Each folder row matches gem-nav-list-item height and style */
+    .folder { margin: 0; border-radius: 0; overflow: visible; }
+    .folder-header {
+        display: flex;
+        align-items: center;
+        padding: 0 8px 0 4px;
+        height: 48px;
+        cursor: pointer;
+        border-radius: 9999px;
+        margin: 0 8px;
+        position: relative;
+        color: #e3e3e3;
+        transition: background-color 0.15s;
+    }
+    .folder-header:hover { background-color: color-mix(in srgb, #e3e3e3 8%, transparent); }
+
+    /* Folder Icon Styles */
+    .folder-icon-wrapper { margin-right: 8px; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex-shrink: 0; }
+    .folder-icon { width: 20px; height: 20px; }
+    .folder.closed .icon-open { display: none; }
+    .folder:not(.closed) .icon-closed { display: none; }
+
+    .folder-name {
+        flex-grow: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
+        font-size: 0.875rem;
+        font-weight: 400;
+        line-height: 1.25rem;
+        color: #e3e3e3;
+    }
+    .folder-controls { display: flex; align-items: center; flex-shrink: 0; }
+    .folder-toggle-icon { transition: transform 0.2s; font-size: 0.7em; opacity: 0.6; color: #c4c7c5; }
+    .folder.closed .folder-toggle-icon { transform: rotate(-90deg); }
+    .folder-options-btn {
+        background: none; border: none; color: #c4c7c5; cursor: pointer;
+        padding: 4px; border-radius: 50%; width: 28px; height: 28px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1em; line-height: 1;
+        opacity: 0;
+        transition: opacity 0.15s, background-color 0.15s;
+    }
+    .folder-header:hover .folder-options-btn { opacity: 1; }
+    .folder-options-btn:hover { background-color: color-mix(in srgb, #e3e3e3 12%, transparent); }
+
+    /* Folder content area - items inside */
+    .folder-content {
+        max-height: 600px;
+        overflow: hidden;
+        transition: max-height 0.25s ease-in-out;
+    }
+    .folder.closed .folder-content { max-height: 0; }
+
+    /* Chat items inside folders - match gem-nav-list-item look */
+    .folder-content .conversation-items-container {
+        display: block;
+        border-radius: 9999px;
+        margin: 0 8px;
+        padding: 0;
+        border: none;
+        transition: background-color 0.15s;
+        position: relative;
+    }
+    .folder-content .conversation-items-container::before {
+        content: none;
+    }
+    .folder-content .conversation-items-container:hover {
+        background-color: color-mix(in srgb, #e3e3e3 8%, transparent);
+    }
+
+    /* "New Folder" button matching Gemini's nav style */
+    #add-folder-btn {
+        display: flex;
+        align-items: center;
+        width: calc(100% - 16px);
+        margin: 2px 8px;
+        padding: 0 16px;
+        height: 48px;
+        border: none;
+        background: none;
+        color: #c4c7c5;
+        border-radius: 9999px;
+        cursor: pointer;
+        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
+        font-size: 0.875rem;
+        font-weight: 400;
+        text-align: left;
+        transition: background-color 0.15s;
+        gap: 12px;
+    }
+    #add-folder-btn::before { content: "+"; font-size: 1.2rem; font-weight: 300; color: #c4c7c5; }
+    #add-folder-btn:hover { background-color: color-mix(in srgb, #e3e3e3 8%, transparent); color: #e3e3e3; }
+
     .conversation-items-container { cursor: grab; }
-    .folder-context-menu { position: absolute; z-index: 10000; background-color: #333333; border: 1px solid var(--surface-4); border-radius: 8px; padding: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); display: none; }
-    .folder-context-menu-item { padding: 8px 12px; cursor: pointer; border-radius: 4px; white-space: nowrap; font-family: 'Roboto', Arial, sans-serif !important; color: #FFFFFF; }
-    .folder-context-menu-item:hover { background-color: var(--surface-4); }
-    .folder-context-menu-item.delete { color: #DB4437; }
-    .sortable-ghost { opacity: 0.4; background: var(--primary-surface-hover); }
+
+    .folder-context-menu {
+        position: fixed; z-index: 10000;
+        background-color: #1e1f20;
+        border: 1px solid #444746;
+        border-radius: 4px;
+        padding: 8px 0;
+        box-shadow: 0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);
+        display: none;
+        min-width: 160px;
+    }
+    .folder-context-menu-item {
+        padding: 8px 12px; cursor: pointer; white-space: nowrap;
+        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
+        font-size: 0.875rem; font-weight: 500; line-height: 1.25rem;
+        color: #e3e3e3;
+    }
+    .folder-context-menu-item:hover { background-color: color-mix(in srgb, #e3e3e3 8%, transparent); }
+    .folder-context-menu-item.delete { color: #f2b8b5; }
+    .folder-context-menu-item.delete:hover { background-color: color-mix(in srgb, #f2b8b5 8%, transparent); }
+
+    .sortable-ghost { opacity: 0.4; }
     .item-group.sortable-ghost { background-color: #555 !important; }
 
 
