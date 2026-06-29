@@ -100,8 +100,8 @@ window.GeminiMod.styles = `
     /* --- Section header: matches "Notebooks" / "Letzte Unterhaltungen" style --- */
     #folder-section-header {
         display: flex; align-items: center; justify-content: space-between;
-        padding: 8px 16px; cursor: pointer; user-select: none;
-        margin-right: 16px; border-radius: 0 24px 24px 0;
+        padding: 0 12px; height: 36px; cursor: pointer; user-select: none;
+        margin: 0 8px; border-radius: 9999px;
         transition: background-color 0.2s ease;
     }
     .folder-section-label {
@@ -134,11 +134,11 @@ window.GeminiMod.styles = `
     #folder-section-body.collapsed { max-height: 0 !important; }
     
     #add-folder-btn {
-        display: flex; align-items: center; width: 100%;
-        padding: 8px 16px; /* Left aligned, identical to folder items */
+        display: flex; align-items: center; width: calc(100% - 16px);
+        padding: 0 12px; height: 36px;
         background: transparent; border: none; color: inherit;
-        border-radius: 0 24px 24px 0; margin-right: 16px;
-        cursor: pointer; text-align: left; height: auto;
+        border-radius: 9999px; margin: 0 8px;
+        cursor: pointer; text-align: left;
         transition: background-color 0.2s ease;
     }
     #add-folder-btn:hover {
