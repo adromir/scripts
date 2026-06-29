@@ -102,21 +102,25 @@ window.GeminiMod.styles = `
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 12px 16px 4px 16px;
+        padding: 0 16px;
+        height: var(--mat-expansion-header-collapsed-state-height, 48px);
         cursor: pointer;
         user-select: none;
         -webkit-user-select: none;
+        color: var(--mat-expansion-header-text-color, #e3e3e3);
+        border-radius: var(--mat-expansion-container-shape, 12px);
+        margin: 0 8px; /* Typical spacing for rounded expansion panels */
+        transition: background-color 0.2s ease;
     }
     .folder-section-label {
-        font-size: 0.875rem;
-        font-weight: 400;
-        line-height: 1.25rem;
-        color: #c4c7c5;
-        letter-spacing: 0;
+        font-family: var(--mat-expansion-header-text-font, "Google Sans", sans-serif);
+        font-size: var(--mat-expansion-header-text-size, 1rem);
+        font-weight: var(--mat-expansion-header-text-weight, 500);
+        line-height: var(--mat-expansion-header-text-line-height, 1.5rem);
     }
     .folder-section-chevron {
-        font-size: 1.1rem;
-        color: #c4c7c5;
+        font-size: 1.2rem;
+        color: var(--mat-expansion-header-indicator-color, #c4c7c5);
         transition: transform 0.2s ease;
         display: inline-block;
         transform: rotate(0deg);
@@ -124,9 +128,8 @@ window.GeminiMod.styles = `
     #folder-section-header.collapsed .folder-section-chevron {
         transform: rotate(-90deg);
     }
-    #folder-section-header:hover .folder-section-label,
-    #folder-section-header:hover .folder-section-chevron {
-        color: #e3e3e3;
+    #folder-section-header:hover {
+        background-color: var(--mat-expansion-header-hover-state-layer-color, rgba(227, 227, 227, 0.08));
     }
 
     /* --- Collapsible body --- */
