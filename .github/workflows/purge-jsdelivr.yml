@@ -1,0 +1,24 @@
+name: Purge jsDelivr Cache
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'userscripts/gemini-snippets/**'
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Purge google_gemini_mod.user.js
+        run: curl -s https://purge.jsdelivr.net/gh/adromir/scripts@main/userscripts/gemini-snippets/google_gemini_mod.user.js
+        
+      - name: Purge gemini_mod_styles.js
+        run: curl -s https://purge.jsdelivr.net/gh/adromir/scripts@main/userscripts/gemini-snippets/gemini_mod_styles.js
+
+      - name: Purge gemini_mod_utils.js
+        run: curl -s https://purge.jsdelivr.net/gh/adromir/scripts@main/userscripts/gemini-snippets/gemini_mod_utils.js
+
+      - name: Purge gemini_mod_drive.js
+        run: curl -s https://purge.jsdelivr.net/gh/adromir/scripts@main/userscripts/gemini-snippets/gemini_mod_drive.js
