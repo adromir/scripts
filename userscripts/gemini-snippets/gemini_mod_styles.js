@@ -102,21 +102,21 @@ window.GeminiMod.styles = `
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 16px;
+        padding: 0 16px 0 24px; /* Matches Gemini standard header indentation */
         height: var(--mat-expansion-header-collapsed-state-height, 48px);
         cursor: pointer;
         user-select: none;
         -webkit-user-select: none;
-        color: var(--mat-expansion-header-text-color, #e3e3e3);
-        border-radius: var(--mat-expansion-container-shape, 12px);
-        margin: 0 8px; /* Typical spacing for rounded expansion panels */
+        color: var(--mat-optgroup-label-text-color, #c4c7c5);
+        border-radius: 0 24px 24px 0;
+        margin-right: 16px;
         transition: background-color 0.2s ease;
     }
     .folder-section-label {
-        font-family: var(--mat-expansion-header-text-font, "Google Sans", sans-serif);
-        font-size: var(--mat-expansion-header-text-size, 1rem);
-        font-weight: var(--mat-expansion-header-text-weight, 500);
-        line-height: var(--mat-expansion-header-text-line-height, 1.5rem);
+        font-family: var(--mat-optgroup-label-text-font, "Google Sans Flex", "Google Sans", sans-serif);
+        font-size: var(--mat-optgroup-label-text-size, 0.875rem);
+        font-weight: var(--mat-optgroup-label-text-weight, 500);
+        line-height: var(--mat-optgroup-label-text-line-height, 1.25rem);
     }
     .folder-section-chevron {
         font-size: 1.2rem;
@@ -140,6 +140,35 @@ window.GeminiMod.styles = `
     }
     #folder-section-body.collapsed {
         max-height: 0;
+    }
+
+    #add-folder-btn {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        padding: 0 16px 0 24px;
+        height: var(--mat-list-list-item-one-line-container-height, 48px);
+        background: transparent;
+        border: none;
+        color: var(--mat-list-list-item-label-text-color, #e3e3e3);
+        border-radius: 0 24px 24px 0;
+        margin-right: 16px;
+        cursor: pointer;
+        text-align: left;
+        transition: background-color 0.2s ease;
+    }
+    #add-folder-btn:hover {
+        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(227, 227, 227, 0.08));
+    }
+    .add-folder-icon {
+        font-size: 20px;
+        margin-right: 16px;
+        color: var(--mat-list-list-item-leading-icon-color, #c4c7c5);
+    }
+    .add-folder-label {
+        font-family: var(--mat-list-list-item-label-text-font, "Google Sans Flex", "Google Sans", sans-serif);
+        font-size: var(--mat-list-list-item-label-text-size, 1rem);
+        font-weight: var(--mat-list-list-item-label-text-weight, 400);
     }
 
     #folder-container { padding-bottom: 4px; }
