@@ -91,27 +91,75 @@ window.GeminiMod.styles = `
     }
 
     /* --- Folder UI Styles --- */
-    /* Many styles are now inherited from Gemini's native classes */
+    /* Match Gemini sidebar design: Google Sans font, Material colors, proper spacing */
     #folder-ui-container {
         padding: 0;
         font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
     }
 
+    /* --- Section header: matches "Notebooks" style --- */
+    #folder-section-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 14px; height: 32px; cursor: pointer; user-select: none;
+        margin: 0 8px; border-radius: 9999px;
+        transition: background-color 0.2s ease;
+    }
+    .folder-section-label {
+        font-weight: 500;
+        color: var(--mat-optgroup-label-text-color, var(--lumi-sys-color--on-surface-variant, #c4c7c5));
+    }
+    #folder-section-header:hover {
+        background-color: var(--mat-expansion-header-hover-state-layer-color, rgba(255, 255, 255, 0.08));
+    }
+    
+    .folder-section-chevron {
+        display: inline-flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.2s, transform 0.2s;
+    }
+    #folder-section-header:hover .folder-section-chevron,
+    #folder-section-header.collapsed .folder-section-chevron {
+        opacity: 1;
+    }
+    #folder-section-header.collapsed .folder-section-chevron {
+        transform: rotate(-90deg);
+    }
+    
+    /* --- Collapsible body --- */
     #folder-section-body {
         overflow: hidden; max-height: 2000px; transition: max-height 0.25s ease-in-out;
     }
     #folder-section-body.collapsed { max-height: 0 !important; }
-
-    #folder-container { padding-bottom: 4px; }
-    .folder { margin: 0; border-radius: 0; overflow: visible; }
     
+    /* --- Folder Items & Add Button --- */
+    #folder-container { padding-bottom: 4px; }
+    
+    #add-folder-btn, .folder-header {
+        display: flex; align-items: center; justify-content: flex-start;
+        width: calc(100% - 16px); box-sizing: border-box;
+        padding: 0 14px; height: 32px;
+        background: transparent; border: none; color: inherit;
+        border-radius: 9999px; margin: 0 8px;
+        cursor: pointer; text-align: left;
+        position: relative;
+        transition: background-color 0.15s ease;
+    }
+    #add-folder-btn:hover, .folder-header:hover {
+        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(255, 255, 255, 0.08));
+    }
+
+    .add-folder-icon, .folder-icon-wrapper { 
+        margin-right: 12px; display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Folder Specific */
+    .folder { margin: 0; overflow: visible; }
+    .folder-name { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
     .folder-controls {
         position: absolute; right: 12px;
         display: none; align-items: center; gap: 4px;
         z-index: 10;
     }
-    
-    /* Folder hover shows controls */
     .folder:hover .folder-controls { display: flex; }
     .folder-controls button {
         background: transparent !important; color: #a8c7fa !important; border: none; font-size: 14px;

@@ -977,25 +977,83 @@
 		return true;
 	}
 
+	// Helper functions for Angular Scoping
+	function getAngularScope(selector) {
+		const el = document.querySelector(selector);
+		if (!el) return null;
+		for (let attr of el.attributes) {
+			if (attr.name.startsWith('_ngcontent-')) return attr.name;
+		}
+		return null;
+	}
+
 	function renderFolders() {
 		const container = document.getElementById('folder-ui-container');
 		if (!container) return;
 
+		const headerScope = getAngularScope('.expandable-section-title') || '';
+		const itemScope = getAngularScope('.gem-nav-list-item') || getAngularScope('.title-text') || '';
+
+		// --- Section header (collapsible, like "Notebooks") ---
+		const STORAGE_KEY_SECTION_OPEN = 'gemini_folder_section_open';
+		const isSectionOpen = GM_getValue(STORAGE_KEY_SECTION_OPEN, true);
+
+		const sectionHeader = document.createElement('div');
+		sectionHeader.id = 'folder-section-header';
+		sectionHeader.className = isSectionOpen ? '' : 'collapsed';
+
+		const sectionLabel = document.createElement('span');
+		sectionLabel.className = 'expandable-section-title gds-body-s folder-section-label';
+		sectionLabel.textContent = 'Folders';
+		if (headerScope) sectionLabel.setAttribute(headerScope, '');
+
+		const sectionChevron = document.createElement('span');
+		sectionChevron.className = 'folder-section-chevron toggle-icon';
+		const chevronIcon = document.createElement('mat-icon');
+		chevronIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color';
+		chevronIcon.textContent = isSectionOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_right';
+		sectionChevron.appendChild(chevronIcon);
+
+		sectionHeader.appendChild(sectionLabel);
+		sectionHeader.appendChild(sectionChevron);
+		container.appendChild(sectionHeader);
+
 		// Remove existing folder-container if exists to re-render
-		let folderWrapper = document.getElementById('folder-container');
+		let folderWrapper = document.getElementById('folder-section-body');
 		if (folderWrapper) folderWrapper.remove();
 
+		// Inner container for folders (this gets collapsed)
 		folderWrapper = document.createElement('div');
-		folderWrapper.id = 'folder-container';
+		folderWrapper.id = 'folder-section-body';
+		folderWrapper.className = isSectionOpen ? '' : 'collapsed';
 		container.appendChild(folderWrapper);
 
+		sectionHeader.addEventListener('click', async () => {
+			const nowOpen = sectionHeader.classList.toggle('collapsed');
+			folderWrapper.classList.toggle('collapsed', nowOpen);
+			chevronIcon.textContent = nowOpen ? 'keyboard_arrow_right' : 'keyboard_arrow_down';
+			await GM_setValue(STORAGE_KEY_SECTION_OPEN, !nowOpen);
+		});
+
 		folders.forEach(folder => {
-			folderWrapper.appendChild(createFolderElement(folder));
+			folderWrapper.appendChild(createFolderElement(folder, itemScope));
 		});
 
 		const addBtn = document.createElement('button');
 		addBtn.id = 'add-folder-btn';
-		addBtn.textContent = '+ New Folder';
+
+		const addIcon = document.createElement('mat-icon');
+		addIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color add-folder-icon';
+		addIcon.textContent = 'add';
+		addIcon.style.color = 'var(--lumi-sys-color--on-surface-variant, #c4c7c5)';
+
+		const addBtnLabel = document.createElement('span');
+		addBtnLabel.className = 'title-text gds-body-s add-folder-label';
+		addBtnLabel.textContent = 'New Folder';
+		if (itemScope) addBtnLabel.setAttribute(itemScope, '');
+
+		addBtn.appendChild(addIcon);
+		addBtn.appendChild(addBtnLabel);
 		addBtn.addEventListener('click', () => {
 			showPrompt("New Folder Name:", "", async (name) => {
 				if (name) {
@@ -1024,39 +1082,29 @@
 		});
 	}
 
-	function createFolderElement(folder) {
+	function createFolderElement(folder, itemScope) {
 		const folderDiv = document.createElement('div');
 		folderDiv.className = `folder ${folder.isOpen ? '' : 'closed'}`;
 		folderDiv.dataset.id = folder.id;
 
 		const header = document.createElement('div');
 		header.className = 'folder-header';
-		header.style.borderLeft = `4px solid ${folder.color}`;
 
 		// Folder Icon (Open/Closed)
 		const iconWrapper = document.createElement('div');
 		iconWrapper.className = 'folder-icon-wrapper';
 
-		const createIcon = (isOpen, color) => {
-			const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-			svg.classList.add("folder-icon", isOpen ? "icon-open" : "icon-closed");
-			svg.setAttribute("viewBox", "0 0 24 24");
-			svg.setAttribute("fill", color);
-			const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-			path.setAttribute("d", isOpen
-				? "M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
-				: "M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z");
-			svg.appendChild(path);
-			return svg;
-		};
-
-		iconWrapper.appendChild(createIcon(true, folder.color));
-		iconWrapper.appendChild(createIcon(false, folder.color));
+		const matIcon = document.createElement('mat-icon');
+		matIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color folder-icon';
+		matIcon.textContent = folder.isOpen ? 'folder_open' : 'folder';
+		matIcon.style.color = folder.color;
+		iconWrapper.appendChild(matIcon);
 		header.appendChild(iconWrapper);
 
 		const nameSpan = document.createElement('span');
-		nameSpan.className = 'folder-name';
+		nameSpan.className = 'title-text gds-body-s folder-name';
 		nameSpan.textContent = folder.name;
+		if (itemScope) nameSpan.setAttribute(itemScope, '');
 		header.appendChild(nameSpan);
 
 		const controls = document.createElement('div');
@@ -1082,6 +1130,7 @@
 		header.addEventListener('click', () => {
 			folder.isOpen = !folder.isOpen;
 			folderDiv.classList.toggle('closed', !folder.isOpen);
+			matIcon.textContent = folder.isOpen ? 'folder_open' : 'folder';
 			saveFolderConfiguration();
 		});
 
