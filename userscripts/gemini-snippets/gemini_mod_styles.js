@@ -109,30 +109,16 @@ window.GeminiMod.styles = `
     }
     #folder-section-body.collapsed { max-height: 0 !important; }
     
-    /* --- Folder Items & Add Button --- */
+    /* Folder Items & Add Button */
     #folder-container { padding-bottom: 4px; }
     
-    #add-folder-btn, .folder-header {
-        display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important;
-        width: calc(100% - 16px) !important; box-sizing: border-box !important;
-        padding: 0 16px !important; height: 32px !important; min-height: 32px !important;
-        background: transparent; border: none; color: inherit;
-        border-radius: 9999px !important; margin: 0 8px !important;
-        cursor: pointer; text-align: left !important;
-        position: relative;
-        transition: background-color 0.15s ease;
-    }
-    #add-folder-btn:hover, .folder-header:hover {
-        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(255, 255, 255, 0.08));
-    }
-
-    .add-folder-icon, .folder-icon-wrapper { 
-        margin-right: 12px !important; margin-left: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important;
+    #add-folder-btn {
+        margin-top: 4px;
     }
 
     /* Folder Specific */
-    .folder { margin: 0 !important; padding: 0 !important; overflow: visible; min-height: 32px !important; }
-    .folder-name { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 0 !important; }
+    .folder { margin: 0; padding: 0; overflow: visible; min-height: 32px; }
+    .folder-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 0; padding-right: 28px; }
 
     .folder-controls {
         position: absolute; right: 12px;
@@ -158,7 +144,7 @@ window.GeminiMod.styles = `
         transition: opacity 0.15s, background-color 0.15s;
     }
     .folder-header:hover .folder-options-btn { opacity: 1; }
-    .folder-options-btn:hover { background-color: color-mix(in srgb, #e3e3e3 12%, transparent); }
+    .folder-options-btn:hover { background-color: rgba(227, 227, 227, 0.12); }
 
     /* Folder content area - items inside */
     .folder-content {
@@ -182,7 +168,7 @@ window.GeminiMod.styles = `
         content: none;
     }
     .folder-content .conversation-items-container:hover {
-        background-color: color-mix(in srgb, #e3e3e3 8%, transparent);
+        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(227, 227, 227, 0.08));
     }
 
     /* "New Folder" button matching Gemini's nav style */
@@ -216,9 +202,9 @@ window.GeminiMod.styles = `
         font-size: 0.875rem; font-weight: 500; line-height: 1.25rem;
         color: #e3e3e3;
     }
-    .folder-context-menu-item:hover { background-color: color-mix(in srgb, #e3e3e3 8%, transparent); }
+    .folder-context-menu-item:hover { background-color: rgba(227, 227, 227, 0.08); }
     .folder-context-menu-item.delete { color: #f2b8b5; }
-    .folder-context-menu-item.delete:hover { background-color: color-mix(in srgb, #f2b8b5 8%, transparent); }
+    .folder-context-menu-item.delete:hover { background-color: rgba(242, 184, 181, 0.08); }
 
     .sortable-ghost { opacity: 0.4; }
     .item-group.sortable-ghost { background-color: #555 !important; }

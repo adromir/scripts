@@ -977,7 +977,9 @@
 			recentHeader = fallbackList;
 		}
 
-		const container = document.createElement('div');
+		// We use a native <expandable-section> to ensure Google's CSS targets it correctly (like margin resets and hover states)
+		const container = document.createElement('expandable-section');
+		container.setAttribute('storagekey', 'folders-mod');
 		container.id = foldersContainerId;
 		// Insert before the recent header
 		recentHeader.parentNode.insertBefore(container, recentHeader);
@@ -1015,10 +1017,15 @@
 		// --- Section header (clone native "Notebooks" style) ---
 		const STORAGE_KEY_SECTION_OPEN = 'gemini_folder_section_open';
 		const isSectionOpen = GM_getValue(STORAGE_KEY_SECTION_OPEN, true);
+		
+		// Ensure container has expanded class if open
+		if (isSectionOpen) container.classList.add('expanded');
 
 		// We use a button to exactly match the native Google 'Notebooks' expandable header
 		const sectionHeader = document.createElement('button');
 		sectionHeader.id = 'folder-section-header';
+		sectionHeader.setAttribute('data-test-id', 'expandable-section-toggle');
+		sectionHeader.setAttribute('aria-expanded', isSectionOpen ? 'true' : 'false');
 		// It inherently has 'expandable-section-header' for native styles
 		sectionHeader.className = 'expandable-section-header ' + (isSectionOpen ? '' : 'collapsed');
 		if (headerScope) sectionHeader.setAttribute(headerScope, '');
@@ -1028,12 +1035,16 @@
 		sectionLabel.textContent = 'Folders';
 		if (headerScope) sectionLabel.setAttribute(headerScope, '');
 
-		// Use a div or span for the chevron
-		const sectionChevron = document.createElement('span');
-		sectionChevron.className = 'folder-section-chevron toggle-icon';
+		// Use gem-icon for the chevron exactly like native
+		const sectionChevron = document.createElement('gem-icon');
+		sectionChevron.className = 'toggle-icon';
+		sectionChevron.setAttribute('data-test-id', 'expandable-section-toggle-icon');
 		if (headerScope) sectionChevron.setAttribute(headerScope, '');
+		
 		const chevronIcon = document.createElement('mat-icon');
 		chevronIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color';
+		chevronIcon.setAttribute('role', 'img');
+		chevronIcon.setAttribute('aria-hidden', 'true');
 		chevronIcon.textContent = isSectionOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_right';
 		sectionChevron.appendChild(chevronIcon);
 
@@ -1046,15 +1057,27 @@
 		if (folderWrapper) folderWrapper.remove();
 
 		// Inner container for folders (this gets collapsed)
+		// Use native expandable-section-content class
 		folderWrapper = document.createElement('div');
 		folderWrapper.id = 'folder-section-body';
-		folderWrapper.className = isSectionOpen ? '' : 'collapsed';
+		folderWrapper.className = 'expandable-section-content ' + (isSectionOpen ? '' : 'collapsed');
+		if (headerScope) folderWrapper.setAttribute(headerScope, '');
 		container.appendChild(folderWrapper);
 
 		sectionHeader.addEventListener('click', async () => {
 			const nowOpen = sectionHeader.classList.toggle('collapsed');
+			sectionHeader.setAttribute('aria-expanded', !nowOpen ? 'true' : 'false');
+			
+			if (nowOpen) {
+			    container.classList.remove('expanded');
+			} else {
+			    container.classList.add('expanded');
+			}
+			
 			folderWrapper.classList.toggle('collapsed', nowOpen);
-			chevronIcon.textContent = nowOpen ? 'keyboard_arrow_right' : 'keyboard_arrow_down';
+			const newChevron = nowOpen ? 'keyboard_arrow_right' : 'keyboard_arrow_down';
+			chevronIcon.textContent = newChevron;
+			chevronIcon.setAttribute('fonticon', newChevron);
 			await GM_setValue(STORAGE_KEY_SECTION_OPEN, !nowOpen);
 		});
 
@@ -1064,19 +1087,34 @@
 
 		const addBtn = document.createElement('button');
 		addBtn.id = 'add-folder-btn';
+		addBtn.className = 'mat-mdc-list-item mdc-list-item mat-mdc-list-item-single-line mdc-list-item--with-one-line';
+		addBtn.style.cursor = 'pointer';
+		addBtn.style.width = '100%';
+		addBtn.style.backgroundColor = 'transparent';
+		addBtn.style.border = 'none';
+		addBtn.style.color = 'inherit';
+		addBtn.style.textAlign = 'left';
 
+		const addIconSpan = document.createElement('span');
+		addIconSpan.className = 'mdc-list-item__start';
+		
 		const addIcon = document.createElement('mat-icon');
-		addIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color add-folder-icon';
+		addIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color';
 		addIcon.textContent = 'add';
-		addIcon.style.color = 'var(--lumi-sys-color--on-surface-variant, #c4c7c5)';
+		addIconSpan.appendChild(addIcon);
+
+		const addContentSpan = document.createElement('span');
+		addContentSpan.className = 'mdc-list-item__content';
 
 		const addBtnLabel = document.createElement('span');
-		addBtnLabel.className = 'title-text gds-body-s add-folder-label';
+		addBtnLabel.className = 'title-text gds-body-s';
 		addBtnLabel.textContent = 'New Folder';
 		if (itemScope) addBtnLabel.setAttribute(itemScope, '');
+		
+		addContentSpan.appendChild(addBtnLabel);
 
-		addBtn.appendChild(addIcon);
-		addBtn.appendChild(addBtnLabel);
+		addBtn.appendChild(addIconSpan);
+		addBtn.appendChild(addContentSpan);
 		addBtn.addEventListener('click', () => {
 			showPrompt("New Folder Name:", "", async (name) => {
 				if (name) {
@@ -1111,24 +1149,35 @@
 		folderDiv.dataset.id = folder.id;
 
 		const header = document.createElement('div');
-		header.className = 'folder-header';
+		header.className = 'folder-header mat-mdc-list-item mdc-list-item mat-mdc-list-item-single-line mdc-list-item--with-one-line';
+		header.style.cursor = 'pointer';
+		header.style.width = '100%';
+		header.style.backgroundColor = 'transparent';
+		header.style.border = 'none';
+		header.style.color = 'inherit';
+		header.style.textAlign = 'left';
 
 		// Folder Icon (Open/Closed)
-		const iconWrapper = document.createElement('div');
-		iconWrapper.className = 'folder-icon-wrapper';
+		const iconWrapper = document.createElement('span');
+		iconWrapper.className = 'mdc-list-item__start';
 
 		const matIcon = document.createElement('mat-icon');
-		matIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color folder-icon';
+		matIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color';
 		matIcon.textContent = folder.isOpen ? 'folder_open' : 'folder';
 		matIcon.style.color = folder.color;
 		iconWrapper.appendChild(matIcon);
 		header.appendChild(iconWrapper);
 
+		const nameWrapper = document.createElement('span');
+		nameWrapper.className = 'mdc-list-item__content';
+
 		const nameSpan = document.createElement('span');
 		nameSpan.className = 'title-text gds-body-s folder-name';
 		nameSpan.textContent = folder.name;
 		if (itemScope) nameSpan.setAttribute(itemScope, '');
-		header.appendChild(nameSpan);
+		
+		nameWrapper.appendChild(nameSpan);
+		header.appendChild(nameWrapper);
 
 		const controls = document.createElement('div');
 		controls.className = 'folder-controls';
@@ -1153,7 +1202,9 @@
 		header.addEventListener('click', () => {
 			folder.isOpen = !folder.isOpen;
 			folderDiv.classList.toggle('closed', !folder.isOpen);
-			matIcon.textContent = folder.isOpen ? 'folder_open' : 'folder';
+			const newIcon = folder.isOpen ? 'folder_open' : 'folder';
+			matIcon.textContent = newIcon;
+			matIcon.setAttribute('fonticon', newIcon);
 			saveFolderConfiguration();
 		});
 
