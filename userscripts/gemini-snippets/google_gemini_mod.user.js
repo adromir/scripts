@@ -17,9 +17,9 @@
 // @grant         unsafeWindow
 // @require       https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js
 // @require       https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js
-// @require       https://cdn.jsdelivr.net/gh/adromir/scripts@ef4eeb9853f8d32d5cff2f37133fe8bddfb19972/userscripts/gemini-snippets/gemini_mod_styles.js#sha256-bXQDm5Zj7+t4jYaFvTGvx/jUgo08EQmLdHve9CIRVoQ=
-// @require       https://cdn.jsdelivr.net/gh/adromir/scripts@bba070d4de424d81a5d6df9211b28492553726f5/userscripts/gemini-snippets/gemini_mod_utils.js
-// @require       https://cdn.jsdelivr.net/gh/adromir/scripts@ef4eeb9853f8d32d5cff2f37133fe8bddfb19972/userscripts/gemini-snippets/gemini_mod_drive.js#sha256-Sf+ByWwt60J4l8gAbxP7jzBd004RVfvwpWhkeyWUcmg=
+// @require       https://cdn.jsdelivr.net/gh/adromir/scripts@main/userscripts/gemini-snippets/gemini_mod_styles.js
+// @require       https://cdn.jsdelivr.net/gh/adromir/scripts@main/userscripts/gemini-snippets/gemini_mod_utils.js
+// @require       https://cdn.jsdelivr.net/gh/adromir/scripts@main/userscripts/gemini-snippets/gemini_mod_drive.js
 // @downloadURL   https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // @updateURL     https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // ==/UserScript==
