@@ -112,8 +112,20 @@ window.GeminiMod.styles = `
     /* Folder Items & Add Button */
     #folder-container { padding-bottom: 4px; }
     
-    #add-folder-btn {
-        margin-top: 4px;
+    #add-folder-btn, .folder-header {
+        display: flex; flex-direction: row; align-items: center; justify-content: flex-start;
+        width: 100%; box-sizing: border-box;
+        padding: 0 16px; min-height: 36px;
+        background: transparent; border: none; color: inherit;
+        border-radius: 9999px; cursor: pointer; text-align: left;
+        position: relative;
+    }
+    #add-folder-btn:hover, .folder-header:hover {
+        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(227, 227, 227, 0.08));
+    }
+    
+    .add-folder-icon, .folder-icon-wrapper { 
+        margin-right: 12px; display: flex; align-items: center; justify-content: center;
     }
 
     /* Folder Specific */
