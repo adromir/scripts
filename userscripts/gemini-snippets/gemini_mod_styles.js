@@ -104,6 +104,13 @@ window.GeminiMod.styles = `
         margin-right: 16px; border-radius: 0 24px 24px 0;
         transition: background-color 0.2s ease;
     }
+    .folder-section-label {
+        font-family: var(--mat-optgroup-label-text-font, "Google Sans Flex", "Google Sans", sans-serif);
+        font-size: var(--mat-optgroup-label-text-size, 0.875rem);
+        font-weight: var(--mat-optgroup-label-text-weight, 500);
+        line-height: var(--mat-optgroup-label-text-line-height, 1.25rem);
+        color: var(--mat-optgroup-label-text-color, #c4c7c5);
+    }
     #folder-section-header:hover {
         background-color: var(--mat-expansion-header-hover-state-layer-color, rgba(255, 255, 255, 0.08));
     }
@@ -145,8 +152,8 @@ window.GeminiMod.styles = `
     .folder-header {
         display: flex;
         align-items: center;
-        padding: 0 8px 0 4px;
-        height: 48px;
+        padding: 0 12px;
+        height: 36px; /* Slimmer height matching typical Gemini items */
         cursor: pointer;
         border-radius: 9999px;
         margin: 0 8px;
