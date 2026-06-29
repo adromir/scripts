@@ -99,63 +99,45 @@ window.GeminiMod.styles = `
 
     /* --- Section header: matches "Notebooks" / "Letzte Unterhaltungen" style --- */
     #folder-section-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 8px 16px; /* Left-aligned like native sections */
-        cursor: pointer;
-        user-select: none;
-        -webkit-user-select: none;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 8px 16px; cursor: pointer; user-select: none;
+        margin-right: 16px; border-radius: 0 24px 24px 0;
         transition: background-color 0.2s ease;
-        margin-right: 16px; /* Leave space for hover shape */
-        border-radius: 0 24px 24px 0;
+    }
+    #folder-section-header:hover {
+        background-color: var(--mat-expansion-header-hover-state-layer-color, rgba(255, 255, 255, 0.08));
     }
     .folder-section-chevron {
-        font-size: 1.2rem;
-        transition: transform 0.2s ease;
-        display: inline-block;
-        transform: rotate(0deg);
+        opacity: 0; transition: opacity 0.2s, transform 0.2s;
+        font-size: 1.2rem; display: inline-block; transform: rotate(0deg);
         color: var(--mat-expansion-header-indicator-color, #c4c7c5);
+    }
+    #folder-section-header:hover .folder-section-chevron,
+    #folder-section-header.collapsed .folder-section-chevron {
+        opacity: 1;
     }
     #folder-section-header.collapsed .folder-section-chevron {
         transform: rotate(-90deg);
     }
-    #folder-section-header:hover {
-        background-color: var(--mat-expansion-header-hover-state-layer-color, rgba(227, 227, 227, 0.08));
-    }
-
+    
     /* --- Collapsible body --- */
     #folder-section-body {
-        overflow: hidden;
-        max-height: 2000px;
-        transition: max-height 0.25s ease-in-out;
+        overflow: hidden; max-height: 2000px; transition: max-height 0.25s ease-in-out;
     }
-    #folder-section-body.collapsed {
-        max-height: 0 !important;
-    }
-
+    #folder-section-body.collapsed { max-height: 0 !important; }
+    
     #add-folder-btn {
-        display: flex;
-        align-items: center;
-        width: 100%;
-        padding: 8px 16px; /* Left-aligned like native sections */
-        background: transparent;
-        border: none;
-        color: inherit;
-        border-radius: 0 24px 24px 0;
-        margin-right: 16px;
-        cursor: pointer;
-        text-align: left;
+        display: flex; align-items: center; width: 100%;
+        padding: 8px 16px; /* Left aligned, identical to folder items */
+        background: transparent; border: none; color: inherit;
+        border-radius: 0 24px 24px 0; margin-right: 16px;
+        cursor: pointer; text-align: left; height: auto;
         transition: background-color 0.2s ease;
     }
     #add-folder-btn:hover {
-        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(227, 227, 227, 0.08));
+        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(255, 255, 255, 0.08));
     }
-    .add-folder-icon {
-        font-size: 20px;
-        margin-right: 12px;
-        color: inherit;
-    }
+    .add-folder-icon { font-size: 1.2rem; margin-right: 12px; }
 
     #folder-container { padding-bottom: 4px; }
     /* Each folder row matches gem-nav-list-item height and style */
