@@ -15,7 +15,7 @@
 // @grant         GM_deleteValue
 // @grant         GM_xmlhttpRequest
 // @grant         unsafeWindow
-// @require       https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js
+// @require       https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js
 // @require       https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js
 // @require       https://cdn.jsdelivr.net/gh/adromir/scripts@main/userscripts/gemini-snippets/gemini_mod_styles.js
 // @require       https://cdn.jsdelivr.net/gh/adromir/scripts@main/userscripts/gemini-snippets/gemini_mod_utils.js
@@ -955,25 +955,43 @@
 	// --- Folder Logic ---
 
 	function initializeFolders() {
-		const chatHistoryList = document.querySelector(FOLDER_INJECTION_POINT_SELECTOR);
-		if (!chatHistoryList) return false;
-
 		const foldersContainerId = 'folder-ui-container';
-		if (!document.getElementById(foldersContainerId)) {
-			const container = document.createElement('div');
-			container.id = foldersContainerId;
-			chatHistoryList.parentNode.insertBefore(container, chatHistoryList);
-			renderFolders();
+		if (document.getElementById(foldersContainerId)) return true; // Already initialized
+
+		// Find the "Recent" (Letzte Unterhaltungen) header to insert before it
+		const headers = document.querySelectorAll('button.expandable-section-header, div.expandable-section-header, .expandable-section-header');
+		let recentHeader = null;
+		
+		// Typically, the first one is Notebooks, the second is Recent. 
+		// If only one exists, it's Recent.
+		if (headers.length >= 2) {
+			recentHeader = headers[1];
+		} else if (headers.length === 1) {
+			recentHeader = headers[0];
 		}
 
-		// Observe chat list changes to identify new conversations
-		const observer = new MutationObserver(() => {
-			processConversationItems(chatHistoryList);
-		});
-		observer.observe(chatHistoryList, { childList: true, subtree: true });
+		if (!recentHeader) {
+			// Fallback to old method
+			const fallbackList = document.querySelector('gem-nav-list, .conversations-list');
+			if (!fallbackList) return false;
+			recentHeader = fallbackList;
+		}
 
-		// Initial process
-		processConversationItems(chatHistoryList);
+		const container = document.createElement('div');
+		container.id = foldersContainerId;
+		// Insert before the recent header
+		recentHeader.parentNode.insertBefore(container, recentHeader);
+		renderFolders();
+
+		// Observe chat list changes to identify new conversations
+		const chatHistoryList = document.querySelector('gem-nav-list, .conversations-list');
+		if (chatHistoryList) {
+			const observer = new MutationObserver(() => {
+				processConversationItems(chatHistoryList);
+			});
+			observer.observe(chatHistoryList, { childList: true, subtree: true });
+			processConversationItems(chatHistoryList);
+		}
 		return true;
 	}
 
@@ -1530,6 +1548,184 @@
 
 	async function init() {
 		console.log("Gemini Mod Userscript: Initializing (Modular Version)...");
+
+		// Override styles to bypass Tampermonkey @require caching
+		window.GeminiMod.styles = `
+    /* --- Folder UI Styles --- */
+    /* Match Gemini sidebar design: Google Sans font, Material colors, proper spacing */
+    #folder-ui-container {
+        padding: 0;
+        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
+    }
+
+    /* --- Section header: matches "Notebooks" style --- */
+    #folder-section-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 14px; height: 32px; cursor: pointer; user-select: none;
+        margin: 0 8px; border-radius: 9999px;
+        transition: background-color 0.2s ease;
+    }
+    .folder-section-label {
+        font-weight: 500;
+        color: var(--mat-optgroup-label-text-color, var(--lumi-sys-color--on-surface-variant, #c4c7c5));
+    }
+    #folder-section-header:hover {
+        background-color: var(--mat-expansion-header-hover-state-layer-color, rgba(255, 255, 255, 0.08));
+    }
+    
+    .folder-section-chevron {
+        display: inline-flex; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.2s, transform 0.2s;
+    }
+    #folder-section-header:hover .folder-section-chevron,
+    #folder-section-header.collapsed .folder-section-chevron {
+        opacity: 1;
+    }
+    #folder-section-header.collapsed .folder-section-chevron {
+        transform: rotate(-90deg);
+    }
+    
+    /* --- Collapsible body --- */
+    #folder-section-body {
+        overflow: hidden; max-height: 2000px; transition: max-height 0.25s ease-in-out;
+    }
+    #folder-section-body.collapsed { max-height: 0 !important; }
+    
+    /* --- Folder Items & Add Button --- */
+    #folder-container { padding-bottom: 4px; }
+    
+    #add-folder-btn, .folder-header {
+        display: flex; align-items: center; justify-content: flex-start;
+        width: calc(100% - 16px); box-sizing: border-box;
+        padding: 0 14px; height: 32px;
+        background: transparent; border: none; color: inherit;
+        border-radius: 9999px; margin: 0 8px;
+        cursor: pointer; text-align: left;
+        position: relative;
+        transition: background-color 0.15s ease;
+    }
+    #add-folder-btn:hover, .folder-header:hover {
+        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(255, 255, 255, 0.08));
+    }
+
+    .add-folder-icon, .folder-icon-wrapper { 
+        margin-right: 12px; display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Folder Specific */
+    .folder { margin: 0; overflow: visible; }
+    .folder-name { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .folder-controls {
+        position: absolute; right: 12px;
+        display: none; align-items: center; gap: 4px;
+        z-index: 10;
+    }
+    .folder:hover .folder-controls { display: flex; }
+    .folder-controls button {
+        background: transparent !important; color: #a8c7fa !important; border: none; font-size: 14px;
+        cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: background-color 0.2s;
+    }
+
+
+    .folder-controls { display: flex; align-items: center; flex-shrink: 0; }
+    .folder-toggle-icon { transition: transform 0.2s; font-size: 0.7em; opacity: 0.6; color: #c4c7c5; }
+    .folder.closed .folder-toggle-icon { transform: rotate(-90deg); }
+    .folder-options-btn {
+        background: none; border: none; color: #c4c7c5; cursor: pointer;
+        padding: 4px; border-radius: 50%; width: 28px; height: 28px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1em; line-height: 1;
+        opacity: 0;
+        transition: opacity 0.15s, background-color 0.15s;
+    }
+    .folder-header:hover .folder-options-btn { opacity: 1; }
+    .folder-options-btn:hover { background-color: color-mix(in srgb, #e3e3e3 12%, transparent); }
+
+    /* Folder content area - items inside */
+    .folder-content {
+        max-height: 600px;
+        overflow: hidden;
+        transition: max-height 0.25s ease-in-out;
+    }
+    .folder.closed .folder-content { max-height: 0; }
+
+    /* Chat items inside folders - match gem-nav-list-item look */
+    .folder-content .conversation-items-container {
+        display: block;
+        border-radius: 9999px;
+        margin: 0 8px;
+        padding: 0;
+        border: none;
+        transition: background-color 0.15s;
+        position: relative;
+    }
+    .folder-content .conversation-items-container::before {
+        content: none;
+    }
+    .folder-content .conversation-items-container:hover {
+        background-color: color-mix(in srgb, #e3e3e3 8%, transparent);
+    }
+
+    .conversation-items-container { cursor: grab; }
+
+    .folder-context-menu {
+        position: fixed; z-index: 10000;
+        background-color: #1e1f20;
+        border: 1px solid #444746;
+        border-radius: 4px;
+        padding: 8px 0;
+        box-shadow: 0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);
+        display: none;
+        min-width: 160px;
+    }
+    .folder-context-menu-item {
+        padding: 8px 12px; cursor: pointer; white-space: nowrap;
+        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
+        font-size: 0.875rem; font-weight: 500; line-height: 1.25rem;
+        color: #e3e3e3;
+    }
+    .folder-context-menu-item:hover { background-color: color-mix(in srgb, #e3e3e3 8%, transparent); }
+    .folder-context-menu-item.delete { color: #f2b8b5; }
+    .folder-context-menu-item.delete:hover { background-color: color-mix(in srgb, #f2b8b5 8%, transparent); }
+
+    .sortable-ghost { opacity: 0.4; }
+    .item-group.sortable-ghost { background-color: #555 !important; }
+
+
+    /* --- Dialog & Color Picker Styles --- */
+    .custom-dialog-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(34, 34, 34, 0.75); z-index: 1000000; display: flex; align-items: center; justify-content: center; }
+    .custom-dialog-box { background-color: #333333; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: center; max-width: 400px; border: 1px solid var(--surface-4); }
+    .custom-dialog-box p, .custom-dialog-box h2 { margin: 0 0 20px; font-family: 'Roboto', Arial, sans-serif; color: #FFFFFF; }
+    .custom-dialog-btn { border: none; border-radius: 8px; padding: 10px 20px; cursor: pointer; font-weight: 500; margin: 0 10px; }
+    .dialog-btn-confirm { background-color: #8ab4f8; color: #202124; }
+    .dialog-btn-cancel { background-color: var(--surface-4); color: var(--on-surface); }
+    .custom-dialog-input { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-4); background-color: var(--surface-1); color: var(--on-surface); font-size: 16px; margin-bottom: 20px; }
+    .color-picker-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+    .color-picker-dialog .color-swatch { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; position: relative; }
+    .color-picker-dialog .color-swatch:hover { border: 2px solid var(--on-primary-surface); }
+    .color-picker-dialog .color-swatch.selected::after { content: ""; position: absolute; inset: 0; border: 3px solid #fff; border-radius: 50%; box-sizing: border-box; pointer-events: none; }
+
+    /* --- Tabbed Settings Styles --- */
+    #gemini-mod-settings-panel h2 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 15px; margin-bottom: 0; }
+    .settings-container { display: flex; height: 500px; min-height: 400px; }
+    .settings-sidebar { width: 180px; border-right: 1px solid #444; padding: 15px 10px; display: flex; flex-direction: column; gap: 5px; background-color: #202122; border-bottom-left-radius: 16px; }
+    .settings-content { flex-grow: 1; padding: 20px; overflow-y: auto; background-color: #282a2c; border-bottom-right-radius: 16px; }
+    .tab-btn {
+        text-align: left; padding: 10px 15px; background: none; border: none; color: #aaa;
+        cursor: pointer; border-radius: 8px; font-size: 14px; font-weight: 500;
+        transition: all 0.2s ease; width: 100%; box-sizing: border-box;
+    }
+    .tab-btn:hover { background-color: #3c4043; color: #e3e3e3; }
+    .tab-btn.active { background-color: #4285f4; color: white; }
+    .tab-pane { display: none; animation: fadeIn 0.2s; }
+    .tab-pane.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* Help Link */
+    .help-link { font-size: 12px; color: #8ab4f8; text-decoration: none; margin-left: 5px; display: inline-flex; align-items: center; }
+    .help-link:hover { text-decoration: underline; }
+		`;
 
 		// Inject Styles (Using Module)
 		injectCSS();
