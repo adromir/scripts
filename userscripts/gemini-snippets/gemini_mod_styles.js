@@ -91,95 +91,34 @@ window.GeminiMod.styles = `
     }
 
     /* --- Folder UI Styles --- */
-    /* Match Gemini sidebar design: Google Sans font, Material colors, proper spacing */
+    /* Many styles are now inherited from Gemini's native classes */
     #folder-ui-container {
         padding: 0;
         font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
     }
 
-    /* --- Section header: matches "Notebooks" / "Letzte Unterhaltungen" style --- */
-    #folder-section-header {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 0 12px; height: 36px; cursor: pointer; user-select: none;
-        margin: 0 8px; border-radius: 9999px;
-        transition: background-color 0.2s ease;
-    }
-    .folder-section-label {
-        font-family: var(--mat-optgroup-label-text-font, "Google Sans Flex", "Google Sans", sans-serif);
-        font-size: var(--mat-optgroup-label-text-size, 0.875rem);
-        font-weight: var(--mat-optgroup-label-text-weight, 500);
-        line-height: var(--mat-optgroup-label-text-line-height, 1.25rem);
-        color: var(--mat-optgroup-label-text-color, #c4c7c5);
-    }
-    #folder-section-header:hover {
-        background-color: var(--mat-expansion-header-hover-state-layer-color, rgba(255, 255, 255, 0.08));
-    }
-    .folder-section-chevron {
-        opacity: 0; transition: opacity 0.2s, transform 0.2s;
-        font-size: 1.2rem; display: inline-block; transform: rotate(0deg);
-        color: var(--mat-expansion-header-indicator-color, #c4c7c5);
-    }
-    #folder-section-header:hover .folder-section-chevron,
-    #folder-section-header.collapsed .folder-section-chevron {
-        opacity: 1;
-    }
-    #folder-section-header.collapsed .folder-section-chevron {
-        transform: rotate(-90deg);
-    }
-    
-    /* --- Collapsible body --- */
     #folder-section-body {
         overflow: hidden; max-height: 2000px; transition: max-height 0.25s ease-in-out;
     }
     #folder-section-body.collapsed { max-height: 0 !important; }
-    
-    #add-folder-btn {
-        display: flex; align-items: center; width: calc(100% - 16px);
-        padding: 0 12px; height: 36px;
-        background: transparent; border: none; color: inherit;
-        border-radius: 9999px; margin: 0 8px;
-        cursor: pointer; text-align: left;
-        transition: background-color 0.2s ease;
-    }
-    #add-folder-btn:hover {
-        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(255, 255, 255, 0.08));
-    }
-    .add-folder-icon { font-size: 1.2rem; margin-right: 12px; }
 
     #folder-container { padding-bottom: 4px; }
-    /* Each folder row matches gem-nav-list-item height and style */
     .folder { margin: 0; border-radius: 0; overflow: visible; }
-    .folder-header {
-        display: flex;
-        align-items: center;
-        padding: 0 12px;
-        height: 36px; /* Slimmer height matching typical Gemini items */
-        cursor: pointer;
-        border-radius: 9999px;
-        margin: 0 8px;
-        position: relative;
-        color: #e3e3e3;
-        transition: background-color 0.15s;
+    
+    .folder-controls {
+        position: absolute; right: 12px;
+        display: none; align-items: center; gap: 4px;
+        z-index: 10;
     }
-    .folder-header:hover { background-color: color-mix(in srgb, #e3e3e3 8%, transparent); }
-
-    /* Folder Icon Styles */
-    .folder-icon-wrapper { margin-right: 8px; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex-shrink: 0; }
-    .folder-icon { width: 20px; height: 20px; }
-    .folder.closed .icon-open { display: none; }
-    .folder:not(.closed) .icon-closed { display: none; }
-
-    .folder-name {
-        flex-grow: 1;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
-        font-size: 0.875rem;
-        font-weight: 400;
-        line-height: 1.25rem;
-        color: #e3e3e3;
+    
+    /* Folder hover shows controls */
+    .folder:hover .folder-controls { display: flex; }
+    .folder-controls button {
+        background: transparent !important; color: #a8c7fa !important; border: none; font-size: 14px;
+        cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: background-color 0.2s;
     }
+
+
     .folder-controls { display: flex; align-items: center; flex-shrink: 0; }
     .folder-toggle-icon { transition: transform 0.2s; font-size: 0.7em; opacity: 0.6; color: #c4c7c5; }
     .folder.closed .folder-toggle-icon { transform: rotate(-90deg); }
