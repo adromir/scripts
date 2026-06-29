@@ -98,28 +98,7 @@ window.GeminiMod.styles = `
     }
 
     /* --- Section header: matches "Notebooks" style --- */
-    #folder-section-header {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 0 14px; height: 32px; cursor: pointer; user-select: none;
-        margin: 0 8px; border-radius: 9999px;
-        transition: background-color 0.2s ease;
-    }
-    .folder-section-label {
-        font-weight: 500;
-        color: var(--mat-optgroup-label-text-color, var(--lumi-sys-color--on-surface-variant, #c4c7c5));
-    }
-    #folder-section-header:hover {
-        background-color: var(--mat-expansion-header-hover-state-layer-color, rgba(255, 255, 255, 0.08));
-    }
-    
-    .folder-section-chevron {
-        display: inline-flex; align-items: center; justify-content: center;
-        opacity: 0; transition: opacity 0.2s, transform 0.2s;
-    }
-    #folder-section-header:hover .folder-section-chevron,
-    #folder-section-header.collapsed .folder-section-chevron {
-        opacity: 1;
-    }
+    /* We now use native .expandable-section-header class, so custom styles are minimal */
     #folder-section-header.collapsed .folder-section-chevron {
         transform: rotate(-90deg);
     }
@@ -134,12 +113,12 @@ window.GeminiMod.styles = `
     #folder-container { padding-bottom: 4px; }
     
     #add-folder-btn, .folder-header {
-        display: flex; align-items: center; justify-content: flex-start;
-        width: calc(100% - 16px); box-sizing: border-box;
-        padding: 0 14px; height: 32px;
+        display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important;
+        width: calc(100% - 16px) !important; box-sizing: border-box !important;
+        padding: 0 16px !important; height: 32px !important; min-height: 32px !important;
         background: transparent; border: none; color: inherit;
-        border-radius: 9999px; margin: 0 8px;
-        cursor: pointer; text-align: left;
+        border-radius: 9999px !important; margin: 0 8px !important;
+        cursor: pointer; text-align: left !important;
         position: relative;
         transition: background-color 0.15s ease;
     }
@@ -148,12 +127,12 @@ window.GeminiMod.styles = `
     }
 
     .add-folder-icon, .folder-icon-wrapper { 
-        margin-right: 12px; display: flex; align-items: center; justify-content: center;
+        margin-right: 12px !important; margin-left: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important;
     }
 
     /* Folder Specific */
-    .folder { margin: 0; overflow: visible; }
-    .folder-name { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .folder { margin: 0 !important; padding: 0 !important; overflow: visible; min-height: 32px !important; }
+    .folder-name { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 0 !important; }
 
     .folder-controls {
         position: absolute; right: 12px;
@@ -208,25 +187,15 @@ window.GeminiMod.styles = `
 
     /* "New Folder" button matching Gemini's nav style */
     #add-folder-btn {
-        display: flex;
-        align-items: center;
-        width: calc(100% - 16px);
-        margin: 2px 8px;
-        padding: 0 16px;
-        height: 48px;
-        border: none;
-        background: none;
+        margin: 2px 8px !important;
         color: #c4c7c5;
-        border-radius: 9999px;
-        cursor: pointer;
         font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
         font-size: 0.875rem;
         font-weight: 400;
-        text-align: left;
-        transition: background-color 0.15s;
-        gap: 12px;
+        gap: 0 !important;
     }
-    #add-folder-btn::before { content: "+"; font-size: 1.2rem; font-weight: 300; color: #c4c7c5; }
+    /* Remove pseudo element '+', we use mat-icon 'add' now */
+    #add-folder-btn::before { content: none !important; }
     #add-folder-btn:hover { background-color: color-mix(in srgb, #e3e3e3 8%, transparent); color: #e3e3e3; }
 
     .conversation-items-container { cursor: grab; }

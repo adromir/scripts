@@ -1012,21 +1012,26 @@
 		const headerScope = getAngularScope('.expandable-section-title') || '';
 		const itemScope = getAngularScope('.gem-nav-list-item') || getAngularScope('.title-text') || '';
 
-		// --- Section header (collapsible, like "Notebooks") ---
+		// --- Section header (clone native "Notebooks" style) ---
 		const STORAGE_KEY_SECTION_OPEN = 'gemini_folder_section_open';
 		const isSectionOpen = GM_getValue(STORAGE_KEY_SECTION_OPEN, true);
 
-		const sectionHeader = document.createElement('div');
+		// We use a button to exactly match the native Google 'Notebooks' expandable header
+		const sectionHeader = document.createElement('button');
 		sectionHeader.id = 'folder-section-header';
-		sectionHeader.className = isSectionOpen ? '' : 'collapsed';
+		// It inherently has 'expandable-section-header' for native styles
+		sectionHeader.className = 'expandable-section-header ' + (isSectionOpen ? '' : 'collapsed');
+		if (headerScope) sectionHeader.setAttribute(headerScope, '');
 
 		const sectionLabel = document.createElement('span');
 		sectionLabel.className = 'expandable-section-title gds-body-s folder-section-label';
 		sectionLabel.textContent = 'Folders';
 		if (headerScope) sectionLabel.setAttribute(headerScope, '');
 
+		// Use a div or span for the chevron
 		const sectionChevron = document.createElement('span');
 		sectionChevron.className = 'folder-section-chevron toggle-icon';
+		if (headerScope) sectionChevron.setAttribute(headerScope, '');
 		const chevronIcon = document.createElement('mat-icon');
 		chevronIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color';
 		chevronIcon.textContent = isSectionOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_right';
