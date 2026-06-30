@@ -90,21 +90,33 @@ window.GeminiMod.styles = `
         margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px;
     }
 
-    /* --- Folder UI Styles --- */
-    /* Match Gemini sidebar design: Google Sans font, Material colors, proper spacing */
+    /* --- Folder container: replaces native expandable-section --- */
     #folder-ui-container {
         padding: 0;
         font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
+        display: block;
     }
 
-    /* --- Section header: matches "Notebooks" style --- */
-    /* We now use native .expandable-section-header class, so custom styles are minimal */
+    /* --- Section header button: standalone styling (no Angular dependency) --- */
+    .folder-section-header-btn {
+        display: flex; align-items: center; justify-content: space-between;
+        width: 100%; box-sizing: border-box;
+        padding: 0 16px; min-height: 40px;
+        background: transparent; border: none; color: inherit;
+        cursor: pointer; text-align: left;
+        font-family: inherit;
+    }
+    .folder-section-header-btn:hover {
+        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(227, 227, 227, 0.08));
+    }
+
     #folder-section-header.collapsed .folder-section-chevron {
         transform: rotate(-90deg);
     }
     
     /* --- Collapsible body --- */
     #folder-section-body {
+        display: block !important; gap: 0 !important;
         overflow: hidden; max-height: 2000px; transition: max-height 0.25s ease-in-out;
     }
     #folder-section-body.collapsed { max-height: 0 !important; }
@@ -121,7 +133,7 @@ window.GeminiMod.styles = `
         position: relative;
     }
     #add-folder-btn:hover, .folder-header:hover {
-        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(227, 227, 227, 0.08));
+        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(227, 227, 227, 0.08)) !important;
     }
     
     .add-folder-icon, .folder-icon-wrapper { 
