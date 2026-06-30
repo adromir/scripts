@@ -961,7 +961,7 @@
 		// Find the "Recent" (Letzte Unterhaltungen) header to insert before it
 		const headers = document.querySelectorAll('button.expandable-section-header, div.expandable-section-header, .expandable-section-header');
 		let recentHeader = null;
-		
+
 		// Typically, the first one is Notebooks, the second is Recent. 
 		// If only one exists, it's Recent.
 		if (headers.length >= 2) {
@@ -977,8 +977,11 @@
 			recentHeader = fallbackList;
 		}
 
-		// We use a native <expandable-section> to ensure Google's CSS targets it correctly (like margin resets and hover states)
-		const container = document.createElement('expandable-section');
+		// Use a plain div instead of the native <expandable-section> custom element.
+		// In Chrome, Angular registers expandable-section with Shadow DOM encapsulation,
+		// which hijacks our manually-appended children and breaks collapse/expand.
+		// A div with the matching CSS class inherits the correct styles without interference.
+		const container = document.createElement('div');
 		container.setAttribute('storagekey', 'folders-mod');
 		container.id = foldersContainerId;
 		// Insert before the recent header
@@ -1017,9 +1020,13 @@
 		// --- Section header (clone native "Notebooks" style) ---
 		const STORAGE_KEY_SECTION_OPEN = 'gemini_folder_section_open';
 		const isSectionOpen = GM_getValue(STORAGE_KEY_SECTION_OPEN, true);
-		
+
 		// Ensure container has expanded class if open
 		if (isSectionOpen) container.classList.add('expanded');
+
+		// Remove old header if it exists
+		let oldHeader = document.getElementById('folder-section-header');
+		if (oldHeader) oldHeader.remove();
 
 		// We use a button to exactly match the native Google 'Notebooks' expandable header
 		const sectionHeader = document.createElement('button');
@@ -1040,7 +1047,7 @@
 		sectionChevron.className = 'toggle-icon';
 		sectionChevron.setAttribute('data-test-id', 'expandable-section-toggle-icon');
 		if (headerScope) sectionChevron.setAttribute(headerScope, '');
-		
+
 		const chevronIcon = document.createElement('mat-icon');
 		chevronIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color';
 		chevronIcon.setAttribute('role', 'img');
@@ -1057,28 +1064,29 @@
 		if (folderWrapper) folderWrapper.remove();
 
 		// Inner container for folders (this gets collapsed)
-		// Use native expandable-section-content class
+		// We intentionally do NOT use the native 'expandable-section-content' class here:
+		// Chrome's Gemini applies its own Angular scoped styles to that class which can
+		// override our max-height transitions. Inline styles always win the cascade.
 		folderWrapper = document.createElement('div');
 		folderWrapper.id = 'folder-section-body';
-		folderWrapper.className = 'expandable-section-content ' + (isSectionOpen ? '' : 'collapsed');
-		if (headerScope) folderWrapper.setAttribute(headerScope, '');
+		folderWrapper.style.display = 'block';
+		folderWrapper.style.width = '100%';
+		folderWrapper.style.overflow = 'hidden';
+		folderWrapper.style.transition = 'max-height 0.25s ease-in-out';
+		folderWrapper.style.maxHeight = isSectionOpen ? '2000px' : '0px';
 		container.appendChild(folderWrapper);
 
 		sectionHeader.addEventListener('click', async () => {
-			const nowOpen = sectionHeader.classList.toggle('collapsed');
-			sectionHeader.setAttribute('aria-expanded', !nowOpen ? 'true' : 'false');
-			
-			if (nowOpen) {
-			    container.classList.remove('expanded');
-			} else {
-			    container.classList.add('expanded');
-			}
-			
-			folderWrapper.classList.toggle('collapsed', nowOpen);
-			const newChevron = nowOpen ? 'keyboard_arrow_right' : 'keyboard_arrow_down';
+			// nowCollapsed = true means 'collapsed' class was just ADDED (section is closing)
+			const nowCollapsed = sectionHeader.classList.toggle('collapsed');
+			sectionHeader.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
+
+			// Use inline style for max-height: immune to CSS specificity and CDN cache issues
+			folderWrapper.style.maxHeight = nowCollapsed ? '0px' : '2000px';
+
+			const newChevron = nowCollapsed ? 'keyboard_arrow_right' : 'keyboard_arrow_down';
 			chevronIcon.textContent = newChevron;
-			chevronIcon.setAttribute('fonticon', newChevron);
-			await GM_setValue(STORAGE_KEY_SECTION_OPEN, !nowOpen);
+			await GM_setValue(STORAGE_KEY_SECTION_OPEN, !nowCollapsed);
 		});
 
 		folders.forEach(folder => {
@@ -1087,34 +1095,19 @@
 
 		const addBtn = document.createElement('button');
 		addBtn.id = 'add-folder-btn';
-		addBtn.className = 'mat-mdc-list-item mdc-list-item mat-mdc-list-item-single-line mdc-list-item--with-one-line';
-		addBtn.style.cursor = 'pointer';
-		addBtn.style.width = '100%';
-		addBtn.style.backgroundColor = 'transparent';
-		addBtn.style.border = 'none';
-		addBtn.style.color = 'inherit';
-		addBtn.style.textAlign = 'left';
 
-		const addIconSpan = document.createElement('span');
-		addIconSpan.className = 'mdc-list-item__start';
-		
 		const addIcon = document.createElement('mat-icon');
-		addIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color';
+		addIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color add-folder-icon';
 		addIcon.textContent = 'add';
-		addIconSpan.appendChild(addIcon);
-
-		const addContentSpan = document.createElement('span');
-		addContentSpan.className = 'mdc-list-item__content';
+		addIcon.style.color = 'var(--lumi-sys-color--on-surface-variant, #c4c7c5)';
 
 		const addBtnLabel = document.createElement('span');
-		addBtnLabel.className = 'title-text gds-body-s';
+		addBtnLabel.className = 'title-text gds-body-s add-folder-label';
 		addBtnLabel.textContent = 'New Folder';
 		if (itemScope) addBtnLabel.setAttribute(itemScope, '');
-		
-		addContentSpan.appendChild(addBtnLabel);
 
-		addBtn.appendChild(addIconSpan);
-		addBtn.appendChild(addContentSpan);
+		addBtn.appendChild(addIcon);
+		addBtn.appendChild(addBtnLabel);
 		addBtn.addEventListener('click', () => {
 			showPrompt("New Folder Name:", "", async (name) => {
 				if (name) {
@@ -1149,35 +1142,24 @@
 		folderDiv.dataset.id = folder.id;
 
 		const header = document.createElement('div');
-		header.className = 'folder-header mat-mdc-list-item mdc-list-item mat-mdc-list-item-single-line mdc-list-item--with-one-line';
-		header.style.cursor = 'pointer';
-		header.style.width = '100%';
-		header.style.backgroundColor = 'transparent';
-		header.style.border = 'none';
-		header.style.color = 'inherit';
-		header.style.textAlign = 'left';
+		header.className = 'folder-header';
 
 		// Folder Icon (Open/Closed)
-		const iconWrapper = document.createElement('span');
-		iconWrapper.className = 'mdc-list-item__start';
+		const iconWrapper = document.createElement('div');
+		iconWrapper.className = 'folder-icon-wrapper';
 
 		const matIcon = document.createElement('mat-icon');
-		matIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color';
+		matIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color folder-icon';
 		matIcon.textContent = folder.isOpen ? 'folder_open' : 'folder';
 		matIcon.style.color = folder.color;
 		iconWrapper.appendChild(matIcon);
 		header.appendChild(iconWrapper);
 
-		const nameWrapper = document.createElement('span');
-		nameWrapper.className = 'mdc-list-item__content';
-
 		const nameSpan = document.createElement('span');
 		nameSpan.className = 'title-text gds-body-s folder-name';
 		nameSpan.textContent = folder.name;
 		if (itemScope) nameSpan.setAttribute(itemScope, '');
-		
-		nameWrapper.appendChild(nameSpan);
-		header.appendChild(nameWrapper);
+		header.appendChild(nameSpan);
 
 		const controls = document.createElement('div');
 		controls.className = 'folder-controls';
@@ -1204,7 +1186,6 @@
 			folderDiv.classList.toggle('closed', !folder.isOpen);
 			const newIcon = folder.isOpen ? 'folder_open' : 'folder';
 			matIcon.textContent = newIcon;
-			matIcon.setAttribute('fonticon', newIcon);
 			saveFolderConfiguration();
 		});
 
