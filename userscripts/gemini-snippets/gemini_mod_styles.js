@@ -90,36 +90,45 @@ window.GeminiMod.styles = `
         margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px;
     }
 
-    /* --- Folder container: replaces native expandable-section --- */
+    /* --- Folder UI Styles --- */
+    /* Match Gemini sidebar design: Google Sans font, Material colors, proper spacing */
     #folder-ui-container {
+        display: block;
+        width: 100%;
+        margin: 0 !important;
         padding: 0;
         font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
-        display: block;
     }
 
-    /* --- Section header button: standalone styling (no Angular dependency) --- */
-    .folder-section-header-btn {
-        display: flex; align-items: center; justify-content: space-between;
-        width: 100%; box-sizing: border-box;
-        padding: 0 16px; min-height: 40px;
-        background: transparent; border: none; color: inherit;
-        cursor: pointer; text-align: left;
+    /* --- Section header: matches "Notebooks" style --- */
+    /* Explicit layout required: Angular-scoped .expandable-section-header styles
+       only apply to elements with matching _ngcontent-* attributes. Our injected
+       button lacks those, so Chrome falls back to default button styles. */
+    #folder-section-header {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0 16px;
+        min-height: 36px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        text-align: left;
+        color: inherit;
         font-family: inherit;
+        margin: 0;
+        gap: 8px;
     }
-    .folder-section-header-btn:hover {
+    #folder-section-header:hover {
         background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(227, 227, 227, 0.08));
     }
-
-    #folder-section-header.collapsed .folder-section-chevron {
-        transform: rotate(-90deg);
+    #folder-section-header .expandable-section-title {
+        flex: 1;
     }
-    
-    /* --- Collapsible body --- */
-    #folder-section-body {
-        display: block !important; gap: 0 !important;
-        overflow: hidden; max-height: 2000px; transition: max-height 0.25s ease-in-out;
-    }
-    #folder-section-body.collapsed { max-height: 0 !important; }
+    /* #folder-section-body collapse is controlled via inline style.maxHeight in JS.
+       This avoids specificity conflicts with Gemini's own Angular-scoped CSS in Chrome. */
     
     /* Folder Items & Add Button */
     #folder-container { padding-bottom: 4px; }
@@ -141,22 +150,16 @@ window.GeminiMod.styles = `
     }
 
     /* Folder Specific */
-    .folder { margin: 0; padding: 0; overflow: visible; min-height: 32px; }
+    .folder { margin: 0; padding: 0; overflow: visible; }
     .folder-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 0; padding-right: 28px; }
 
-    .folder-controls {
-        position: absolute; right: 12px;
-        display: none; align-items: center; gap: 4px;
-        z-index: 10;
-    }
+    /* Second rule intentionally removed — it was overriding display:none above with display:flex */
+    .folder-controls { position: absolute; right: 12px; display: none; align-items: center; gap: 4px; flex-shrink: 0; z-index: 10; }
     .folder:hover .folder-controls { display: flex; }
     .folder-controls button {
         background: transparent !important; color: #a8c7fa !important; border: none; font-size: 14px;
         cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: background-color 0.2s;
     }
-
-
-    .folder-controls { display: flex; align-items: center; flex-shrink: 0; }
     .folder-toggle-icon { transition: transform 0.2s; font-size: 0.7em; opacity: 0.6; color: #c4c7c5; }
     .folder.closed .folder-toggle-icon { transform: rotate(-90deg); }
     .folder-options-btn {
@@ -172,6 +175,7 @@ window.GeminiMod.styles = `
 
     /* Folder content area - items inside */
     .folder-content {
+        min-height: 0;        /* prevent phantom height when empty */
         max-height: 600px;
         overflow: hidden;
         transition: max-height 0.25s ease-in-out;
@@ -197,6 +201,9 @@ window.GeminiMod.styles = `
 
     /* "New Folder" button matching Gemini's nav style */
     #add-folder-btn {
+        /* calc(100% - 16px) so 8px left+right margin doesn't make the button
+           wider than its container, which would visually off-center the content */
+        width: calc(100% - 16px) !important;
         margin: 2px 8px !important;
         color: #c4c7c5;
         font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
