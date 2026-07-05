@@ -1,3 +1,5 @@
 config.json
 pgsql_17.10/
 MEMORY.md
+powershell/exif/geotag/config.backup.json
+/powershell/postgres/migrate/logs
