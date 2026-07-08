@@ -3,3 +3,7 @@ pgsql_17.10/
 MEMORY.md
 powershell/exif/geotag/config.backup.json
 /powershell/postgres/migrate/logs
+/powershell/postgres/migrate/tools/pgloader.jar
+/powershell/postgres/migrate/tools/mysql.exe
+/powershell/postgres/migrate/tools/libmariadb.dll
+/powershell/postgres/migrate/dumps
