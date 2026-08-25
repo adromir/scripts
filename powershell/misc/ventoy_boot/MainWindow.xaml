@@ -1,0 +1,416 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+		Name="mainWin"
+		Title="⚡ Ventoy Local Boot Configurator" Height="780" Width="1180" WindowStartupLocation="CenterScreen" Background="#f4f6f9"
+		FontFamily="Segoe UI, Segoe UI Emoji, Segoe UI Symbol">
+	<Grid Margin="15">
+		<Grid.RowDefinitions>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="*"/>
+		</Grid.RowDefinitions>
+
+		<!-- Top Bar: Ventoy Drive Selection & Language -->
+		<Border Grid.Row="0" Background="White" CornerRadius="6" Padding="12,10" Margin="0,0,0,12" BorderBrush="#e2e8f0" BorderThickness="1">
+			<Grid>
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="*"/>
+					<ColumnDefinition Width="Auto"/>
+				</Grid.ColumnDefinitions>
+
+				<StackPanel Grid.Column="0" Orientation="Horizontal">
+					<TextBlock Name="lblVentoyDrive" Text="⚡ Ventoy-Laufwerk: " VerticalAlignment="Center" FontWeight="Bold" FontSize="13" Foreground="#2d3748"/>
+					<ComboBox Name="cbVentoyDrive" Width="320" DisplayMemberPath="Display" SelectedValuePath="Path" Margin="10,0,0,0" VerticalAlignment="Center" Padding="6,4"/>
+					<Button Name="btnLoadVentoy" Content="🔄 Laufwerke aktualisieren" Margin="12,0,0,0" Padding="14,6" FontWeight="SemiBold" Background="#edf2f7" BorderBrush="#cbd5e0" Cursor="Hand"/>
+				</StackPanel>
+
+				<StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+					<TextBlock Name="lblLanguage" Text="Sprache: " VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,6,0" Foreground="#4a5568"/>
+					<ComboBox Name="cbLanguage" Width="130" SelectedIndex="0" Padding="6,3">
+						<ComboBoxItem Content="🇩🇪 Deutsch" Tag="de"/>
+						<ComboBoxItem Content="🇬🇧 English" Tag="en"/>
+					</ComboBox>
+				</StackPanel>
+			</Grid>
+		</Border>
+
+		<TabControl Name="tcMain" Grid.Row="1" Background="White" BorderBrush="#e2e8f0">
+			<!-- TAB 1: Lokale Partitionen -->
+			<TabItem Name="tabPartitions" Header="💽  Lokale Partitionen (Grub)">
+				<Grid Margin="12">
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto"/>
+						<RowDefinition Height="*"/>
+						<RowDefinition Height="Auto"/>
+						<RowDefinition Height="Auto"/>
+					</Grid.RowDefinitions>
+					
+					<TextBlock Name="lblPartitionsHeader" Grid.Row="0" Text="Wähle eine lokale Partition zum Booten aus (Drücke F6 in Ventoy, um dieses Menü zu laden):" FontWeight="SemiBold" FontSize="12.5" Foreground="#2d3748" Margin="0,0,0,8"/>
+					
+					<DataGrid Name="dgVolumes" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" Margin="0,0,0,10" Background="White" BorderBrush="#e2e8f0" RowHeight="26" GridLinesVisibility="Horizontal" HeadersVisibility="Column">
+						<DataGrid.Columns>
+							<DataGridTextColumn x:Name="colDisk" Header="Datenträger" Binding="{Binding DiskInfo}" Width="250"/>
+							<DataGridTextColumn x:Name="colPart" Header="Part." Binding="{Binding PartitionNumber}" Width="45"/>
+							<DataGridTextColumn x:Name="colLetter" Header="Buchstabe" Binding="{Binding DriveLetter}" Width="68"/>
+							<DataGridTextColumn x:Name="colLabel" Header="Name (Label)" Binding="{Binding Label}" Width="120"/>
+							<DataGridTextColumn x:Name="colSize" Header="Größe (GB)" Binding="{Binding CapacityGB}" Width="75"/>
+							<DataGridTextColumn x:Name="colFs" Header="Dateisystem" Binding="{Binding FileSystem}" Width="75"/>
+							<DataGridTextColumn x:Name="colType" Header="Typ" Binding="{Binding PartitionType}" Width="100"/>
+							<DataGridTextColumn x:Name="colRecommendation" Header="Boot-Empfehlung" Binding="{Binding BootRole}" Width="195"/>
+							<DataGridTextColumn x:Name="colGrubUuid" Header="Grub UUID" Binding="{Binding GrubUUID}" Width="160"/>
+						</DataGrid.Columns>
+					</DataGrid>
+
+					<!-- Guidance / Partition Tip Box -->
+					<Border Name="borderPartitionTip" Grid.Row="2" Background="#eef6fc" BorderBrush="#b8daff" BorderThickness="1" CornerRadius="5" Padding="10,8" Margin="0,0,0,10">
+						<TextBlock Name="txtPartitionTip" Text="👉 Tipp zur Auswahl: Für UEFI-Systeme wähle die ⭐ System (EFI)-Partition (FAT32) des gewünschten Betriebssystems. Für älteren Legacy BIOS-Boot wähle die Windows-Partition (C:)." TextWrapping="Wrap" FontSize="11.5" Foreground="#1e3a8a"/>
+					</Border>
+
+					<!-- Bottom Controls: Entry Name, Bootloader Type, Default Check & Add Button -->
+					<Border Grid.Row="3" Background="#f8fafc" BorderBrush="#e2e8f0" BorderThickness="1" CornerRadius="5" Padding="10,8">
+						<Grid>
+							<Grid.RowDefinitions>
+								<RowDefinition Height="Auto"/>
+								<RowDefinition Height="Auto"/>
+							</Grid.RowDefinitions>
+
+							<Grid Grid.Row="0" Margin="0,0,0,8">
+								<Grid.ColumnDefinitions>
+									<ColumnDefinition Width="Auto"/>
+									<ColumnDefinition Width="*"/>
+									<ColumnDefinition Width="Auto"/>
+									<ColumnDefinition Width="*"/>
+								</Grid.ColumnDefinitions>
+
+								<TextBlock Name="lblMenuNameVolume" Grid.Column="0" Text="Name des Menüeintrags: " VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#2d3748" Margin="0,0,8,0"/>
+								<TextBox Name="txtMenuNameVolume" Grid.Column="1" VerticalAlignment="Center" Padding="6,4" Margin="0,0,15,0"/>
+
+								<TextBlock Name="lblBootloaderType" Grid.Column="2" Text="Erwarteter Bootloader: " VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#2d3748" Margin="0,0,8,0"/>
+								<ComboBox Name="cbBootloaderType" Grid.Column="3" VerticalAlignment="Center" Padding="6,4" SelectedIndex="0">
+									<ComboBoxItem Name="cbiBootWinUefi" Content="⊞ Windows Boot Manager (UEFI)" Tag="win_uefi"/>
+									<ComboBoxItem Name="cbiBootUbuntu" Content="🐧 Ubuntu / Mint (UEFI)" Tag="ubuntu_uefi"/>
+									<ComboBoxItem Name="cbiBootDebian" Content="🐧 Debian (UEFI)" Tag="debian_uefi"/>
+									<ComboBoxItem Name="cbiBootFedora" Content="🐧 Fedora / RHEL (UEFI)" Tag="fedora_uefi"/>
+									<ComboBoxItem Name="cbiBootArch" Content="🐧 Arch Linux / Manjaro (UEFI)" Tag="arch_uefi"/>
+									<ComboBoxItem Name="cbiBootOpenSuse" Content="🐧 openSUSE (UEFI)" Tag="opensuse_uefi"/>
+									<ComboBoxItem Name="cbiBootSystemd" Content="🐧 systemd-boot (UEFI)" Tag="systemd_uefi"/>
+									<ComboBoxItem Name="cbiBootGenericUefi" Content="⚡ Generischer UEFI (BOOTX64.EFI)" Tag="generic_uefi"/>
+									<ComboBoxItem Name="cbiBootWinBios" Content="⊞ Windows Legacy (BIOS / bootmgr)" Tag="win_bios"/>
+									<ComboBoxItem Name="cbiBootChainload" Content="🔄 Partition Chainload (+1)" Tag="chainload"/>
+								</ComboBox>
+							</Grid>
+
+							<DockPanel Grid.Row="1">
+								<CheckBox Name="chkSetDefaultVolume" DockPanel.Dock="Left" Content="⭐ Als Standard-Starteintrag festlegen (set default)" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#2d3748"/>
+								<Button Name="btnAddVolume" DockPanel.Dock="Right" HorizontalAlignment="Right" Content="➕ Zum Menü hinzufügen" Padding="18,6" Background="#2b6cb0" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
+							</DockPanel>
+						</Grid>
+					</Border>
+				</Grid>
+			</TabItem>
+
+			<!-- TAB 2: Einträge verwalten -->
+			<TabItem Name="tabManage" Header="📋  Einträge verwalten">
+				<Grid Margin="12">
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto"/>
+						<RowDefinition Height="*"/>
+						<RowDefinition Height="Auto"/>
+					</Grid.RowDefinitions>
+
+					<!-- Header & Grub Timeout Row -->
+					<Border Grid.Row="0" Background="#f8fafc" BorderBrush="#e2e8f0" BorderThickness="1" CornerRadius="5" Padding="10,8" Margin="0,0,0,10">
+						<DockPanel>
+							<TextBlock Name="lblManageHeader" Text="Vorhandene Boot-Einträge in deiner aktuellen Grub-Vorschau:" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#2d3748"/>
+							<StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+								<TextBlock Name="lblGrubTimeout" Text="⏱️ Grub-Menü Timeout (Sekunden): " VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#4a5568" Margin="0,0,6,0"/>
+								<ComboBox Name="cbGrubTimeout" Width="80" IsEditable="True" Padding="6,2">
+									<ComboBoxItem Content="0"/>
+									<ComboBoxItem Content="3"/>
+									<ComboBoxItem Content="5"/>
+									<ComboBoxItem Content="10"/>
+									<ComboBoxItem Content="15"/>
+									<ComboBoxItem Content="30"/>
+									<ComboBoxItem Content="-1"/>
+								</ComboBox>
+							</StackPanel>
+						</DockPanel>
+					</Border>
+					
+					<Grid Grid.Row="1">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="3*"/>
+							<ColumnDefinition Width="15"/>
+							<ColumnDefinition Width="2.5*"/>
+						</Grid.ColumnDefinitions>
+
+						<!-- Left: Entries List and Actions -->
+						<Grid Grid.Column="0">
+							<Grid.RowDefinitions>
+								<RowDefinition Height="*"/>
+								<RowDefinition Height="Auto"/>
+							</Grid.RowDefinitions>
+
+							<ListBox Name="lbEntries" Grid.Row="0" DisplayMemberPath="Display" Margin="0,0,0,10" Background="White" BorderBrush="#cbd5e0" BorderThickness="1" FontSize="12.5"/>
+
+							<WrapPanel Grid.Row="1" Orientation="Horizontal">
+								<Button Name="btnSetDefault" Content="⭐ Als Standard festlegen" Padding="12,5" Margin="0,0,8,0" Background="#fef3c7" Foreground="#92400e" FontWeight="Bold" BorderBrush="#fde68a" Cursor="Hand"/>
+								<Button Name="btnMoveUp" Content="⬆️ Nach oben" Padding="12,5" Margin="0,0,8,0" Background="#edf2f7" Cursor="Hand"/>
+								<Button Name="btnMoveDown" Content="⬇️ Nach unten" Padding="12,5" Margin="0,0,8,0" Background="#edf2f7" Cursor="Hand"/>
+								<Button Name="btnRefreshEntries" Content="🔄 Liste aktualisieren" Padding="12,5" Margin="0,0,8,0" Background="#edf2f7" Cursor="Hand"/>
+								<Button Name="btnDeleteEntry" Content="🗑️ Eintrag löschen" Padding="14,5" Background="#fed7d7" Foreground="#9b2c2c" FontWeight="Bold" BorderBrush="#feb2b2" Cursor="Hand"/>
+							</WrapPanel>
+						</Grid>
+
+						<!-- Right: Entry Editor Card -->
+						<Border Name="borderEditEntry" Grid.Column="2" Background="#f8fafc" BorderBrush="#cbd5e0" BorderThickness="1" CornerRadius="6" Padding="14">
+							<Grid>
+								<Grid.RowDefinitions>
+									<RowDefinition Height="Auto"/>
+									<RowDefinition Height="Auto"/>
+									<RowDefinition Height="Auto"/>
+									<RowDefinition Height="Auto"/>
+									<RowDefinition Height="Auto"/>
+									<RowDefinition Height="*"/>
+								</Grid.RowDefinitions>
+
+								<TextBlock Name="lblEditEntryHeader" Grid.Row="0" Text="Eintrag bearbeiten &amp; konfigurieren" FontWeight="Bold" FontSize="13" Foreground="#2d3748" Margin="0,0,0,12"/>
+
+								<StackPanel Grid.Row="1" Margin="0,0,0,10">
+									<TextBlock Name="lblEditEntryName" Text="Name des Eintrags:" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="#4a5568"/>
+									<TextBox Name="txtEditEntryName" Padding="6,4" Background="White" BorderBrush="#cbd5e0"/>
+								</StackPanel>
+
+								<StackPanel Grid.Row="2" Margin="0,0,0,10">
+									<TextBlock Name="lblEditBootType" Text="Bootloader-Typ:" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="#4a5568"/>
+									<ComboBox Name="cbEditBootloaderType" Padding="6,4" Background="White">
+										<ComboBoxItem Name="cbiEditBootWinUefi" Content="⊞ Windows Boot Manager (UEFI)" Tag="win_uefi"/>
+										<ComboBoxItem Name="cbiEditBootUbuntu" Content="🐧 Ubuntu / Mint (UEFI)" Tag="ubuntu_uefi"/>
+										<ComboBoxItem Name="cbiEditBootDebian" Content="🐧 Debian (UEFI)" Tag="debian_uefi"/>
+										<ComboBoxItem Name="cbiEditBootFedora" Content="🐧 Fedora / RHEL (UEFI)" Tag="fedora_uefi"/>
+										<ComboBoxItem Name="cbiEditBootArch" Content="🐧 Arch Linux / Manjaro (UEFI)" Tag="arch_uefi"/>
+										<ComboBoxItem Name="cbiEditBootOpenSuse" Content="🐧 openSUSE (UEFI)" Tag="opensuse_uefi"/>
+										<ComboBoxItem Name="cbiEditBootSystemd" Content="🐧 systemd-boot (UEFI)" Tag="systemd_uefi"/>
+										<ComboBoxItem Name="cbiEditBootGenericUefi" Content="⚡ Generischer UEFI (BOOTX64.EFI)" Tag="generic_uefi"/>
+										<ComboBoxItem Name="cbiEditBootWinBios" Content="⊞ Windows Legacy (BIOS / bootmgr)" Tag="win_bios"/>
+										<ComboBoxItem Name="cbiEditBootChainload" Content="🔄 Partition Chainload (+1)" Tag="chainload"/>
+									</ComboBox>
+								</StackPanel>
+
+								<StackPanel Grid.Row="3" Margin="0,0,0,14">
+									<TextBlock Name="lblEditUuid" Text="Grub UUID:" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="#4a5568"/>
+									<TextBox Name="txtEditEntryUuid" Padding="6,4" Background="White" BorderBrush="#cbd5e0"/>
+								</StackPanel>
+
+								<StackPanel Grid.Row="4" Orientation="Vertical">
+									<Button Name="btnUpdateEntry" Content="💾 Änderungen am Eintrag speichern" Padding="14,7" Background="#2b6cb0" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand" Margin="0,0,0,8"/>
+								</StackPanel>
+							</Grid>
+						</Border>
+					</Grid>
+				</Grid>
+			</TabItem>
+
+			<!-- TAB 3: Ventoy JSON Konfiguration -->
+			<TabItem Name="tabSettings" Header="⚙️  Ventoy-Einstellungen (JSON)">
+				<ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0">
+					<Grid Margin="12">
+						<Grid.RowDefinitions>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+						</Grid.RowDefinitions>
+
+						<TextBlock Name="lblJsonHeader" Grid.Row="0" Text="Globale Ventoy-Konfiguration (ventoy.json):" FontWeight="Bold" FontSize="14" Foreground="#1a202c" Margin="0,0,0,12"/>
+
+						<!-- Card 1: Auto-Boot & Timeout -->
+						<Border Grid.Row="1" Background="#f8fafc" BorderBrush="#cbd5e0" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12">
+							<StackPanel>
+								<TextBlock Name="lblJsonAutoBootTitle" Text="⏱️ Auto-Boot &amp; Timeout (Ventoy-Hauptmenü)" FontWeight="Bold" FontSize="13" Foreground="#2b6cb0" Margin="0,0,0,10"/>
+								
+								<Grid Margin="0,0,0,8">
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition Width="240"/>
+										<ColumnDefinition Width="*"/>
+									</Grid.ColumnDefinitions>
+									<Grid.RowDefinitions>
+										<RowDefinition Height="Auto"/>
+										<RowDefinition Height="Auto"/>
+										<RowDefinition Height="Auto"/>
+									</Grid.RowDefinitions>
+
+									<!-- Default Action -->
+									<TextBlock Name="lblDefaultAction" Grid.Row="0" Grid.Column="0" Text="Standard-Aktion / Startverhalten: " FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,0,8" Foreground="#4a5568"/>
+									<ComboBox Name="cbDefaultAction" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Left" Width="520" Padding="6,4" Margin="0,0,0,8">
+										<ComboBoxItem Name="cbiActionNone" Content="Keine / Manuell (Ventoy-Hauptmenü)" Tag=""/>
+										<ComboBoxItem Name="cbiActionIso" Content="Spezifische Standard-ISO starten" Tag="ISO"/>
+										<ComboBoxItem Name="cbiActionF6" Content="F6> (Lokales Boot-Menü / ventoy_grub.cfg)" Tag="F6>"/>
+										<ComboBoxItem Name="cbiActionF4" Content="F4> (Ventoy Windows / Local Boot Suche)" Tag="F4>"/>
+										<ComboBoxItem Name="cbiActionF5" Content="F5> (Ventoy Diagnose-Menü)" Tag="F5>"/>
+										<ComboBoxItem Name="cbiActionF2" Content="F2> (Dateibrowser-Menü)" Tag="F2>"/>
+										<ComboBoxItem Name="cbiActionExit" Content="VTOY_EXIT (Ins BIOS / UEFI beenden)" Tag="VTOY_EXIT"/>
+									</ComboBox>
+
+									<!-- Default ISO (Only active/visible when ISO action is selected or user chooses custom) -->
+									<TextBlock Name="lblDefaultIso" Grid.Row="1" Grid.Column="0" Text="Standard-ISO (VTOY_DEFAULT_IMAGE): " FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,0,8" Foreground="#4a5568"/>
+									<DockPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" Width="520">
+										<Button Name="btnDownloadIso" Content="⚡ Minimal-ISO laden..." DockPanel.Dock="Right" Padding="8,4" Margin="6,0,0,0" Background="#ebf8ff" BorderBrush="#bee3f8" Foreground="#2b6cb0" FontWeight="SemiBold" Cursor="Hand"/>
+										<Button Name="btnBrowseIso" Content="📁 ISO wählen..." DockPanel.Dock="Right" Padding="8,4" Margin="6,0,0,0" Background="#edf2f7" BorderBrush="#cbd5e0" Cursor="Hand"/>
+										<ComboBox Name="cbDefaultIso" IsEditable="True" Padding="6,4" ToolTip="Relativer Pfad zur ISO auf dem Ventoy-Stick (z.B. /ventoy_localboot.iso oder /ventoy/ventoy_localboot.iso)"/>
+									</DockPanel>
+
+									<!-- Timeout Input -->
+									<TextBlock Name="lblVentoyTimeout" Grid.Row="2" Grid.Column="0" Text="⏱️ Ventoy-Menü Timeout (Sekunden): " FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#4a5568"/>
+									<StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
+										<TextBox Name="txtVentoyTimeout" Width="100" Padding="6,4" ToolTip="Countdown im Ventoy-Hauptmenü (z.B. 10)"/>
+										<TextBlock Name="lblTimeoutUnit" Text="Sek. (0 oder leer = kein Countdown)" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="11" Foreground="#718096"/>
+									</StackPanel>
+								</Grid>
+
+								<!-- Helper Tip Banner -->
+								<Border Background="#eef6fc" BorderBrush="#b8daff" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,4,0,0">
+									<TextBlock Name="txtJsonAutoBootTip" Text="👉 Wenn ein Timeout gesetzt ist, führt Ventoy nach Ablauf des Countdowns automatisch die ausgewählte Standard-Aktion aus." FontSize="11.5" Foreground="#1e3a8a" TextWrapping="Wrap"/>
+								</Border>
+							</StackPanel>
+						</Border>
+
+						<!-- Card 2: Linux Live-Persistence -->
+						<Border Grid.Row="2" Background="#f8fafc" BorderBrush="#cbd5e0" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12">
+							<StackPanel>
+								<TextBlock Name="lblJsonPersistenceTitle" Text="💾 Linux Live-Persistenz (persistence)" FontWeight="Bold" FontSize="13" Foreground="#2d3748" Margin="0,0,0,6"/>
+								<Border Background="#f0fff4" BorderBrush="#c6f6d5" BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10">
+									<TextBlock Name="txtJsonPersistenceTip" Text="👉 Verknüpfe Linux-ISOs mit .dat-Persistenzdateien, um Änderungen und Daten im Live-System dauerhaft auf dem USB-Stick zu sichern." FontSize="11.5" Foreground="#22543d" TextWrapping="Wrap"/>
+								</Border>
+
+								<!-- Persistence List -->
+								<ListBox Name="lbPersistence" Height="110" Background="White" BorderBrush="#cbd5e0" Margin="0,0,0,8" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+
+								<!-- Action Buttons -->
+								<StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+									<Button Name="btnAddPersistence" Content="➕ Verknüpfung hinzufügen" Padding="10,5" Margin="0,0,8,0" Background="#edf2f7" BorderBrush="#cbd5e0" FontWeight="SemiBold" Cursor="Hand"/>
+									<Button Name="btnRemovePersistence" Content="🗑️ Verknüpfung löschen" Padding="10,5" Margin="0,0,8,0" Background="#fff5f5" BorderBrush="#feb2b2" Foreground="#c53030" Cursor="Hand"/>
+									<Button Name="btnTogglePersistCreator" Content="📥 Neue .dat Datei erstellen..." Padding="10,5" Background="#ebf8ff" BorderBrush="#bee3f8" Foreground="#2b6cb0" FontWeight="SemiBold" Cursor="Hand"/>
+								</StackPanel>
+
+								<!-- Creator / Editor Panel (Collapsible) -->
+								<Border Name="borderPersistCreator" Background="#ffffff" BorderBrush="#bee3f8" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,4" Visibility="Collapsed">
+									<StackPanel>
+										<TextBlock Name="lblPersistCreatorTitle" Text="📥 Neue Persistenz-Datei auf USB-Stick herunterladen &amp; erstellen:" FontWeight="Bold" FontSize="12" Foreground="#2b6cb0" Margin="0,0,0,8"/>
+										<Grid>
+											<Grid.ColumnDefinitions>
+												<ColumnDefinition Width="220"/>
+												<ColumnDefinition Width="*"/>
+											</Grid.ColumnDefinitions>
+											<Grid.RowDefinitions>
+												<RowDefinition Height="Auto"/>
+												<RowDefinition Height="Auto"/>
+												<RowDefinition Height="Auto"/>
+												<RowDefinition Height="Auto"/>
+												<RowDefinition Height="Auto"/>
+											</Grid.RowDefinitions>
+
+											<!-- Distro / Label -->
+											<TextBlock Name="lblPersistDistro" Grid.Row="0" Grid.Column="0" Text="Linux-Distribution / Label: " FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,0,6" Foreground="#4a5568"/>
+											<ComboBox Name="cbPersistDistro" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Left" Width="360" Padding="4,2" Margin="0,0,0,6">
+												<ComboBoxItem Content="Ubuntu / Linux Mint / Zorin / Pop!_OS (casper-rw)" Tag="casper-rw" IsSelected="True"/>
+												<ComboBoxItem Content="Debian / Kali / Tails / Parrot (persistence)" Tag="persistence"/>
+												<ComboBoxItem Content="Arch / Manjaro / Fedora (vtoycow)" Tag="vtoycow"/>
+												<ComboBoxItem Content="MX Linux / antiX (MX-Persist)" Tag="MX-Persist"/>
+											</ComboBox>
+
+											<!-- Size -->
+											<TextBlock Name="lblPersistSize" Grid.Row="1" Grid.Column="0" Text="Dateigröße: " FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,0,6" Foreground="#4a5568"/>
+											<ComboBox Name="cbPersistSize" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" Width="180" Padding="4,2" Margin="0,0,0,6">
+												<ComboBoxItem Content="256 MB" Tag="256MB"/>
+												<ComboBoxItem Content="512 MB" Tag="512MB"/>
+												<ComboBoxItem Content="1 GB" Tag="1GB" IsSelected="True"/>
+												<ComboBoxItem Content="2 GB" Tag="2GB"/>
+												<ComboBoxItem Content="4 GB" Tag="4GB"/>
+											</ComboBox>
+
+											<!-- Filesystem -->
+											<TextBlock Name="lblPersistFs" Grid.Row="2" Grid.Column="0" Text="Dateisystem: " FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,0,6" Foreground="#4a5568"/>
+											<ComboBox Name="cbPersistFs" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left" Width="180" Padding="4,2" Margin="0,0,0,6">
+												<ComboBoxItem Content="ext4 (Empfohlen)" Tag="ext4" IsSelected="True"/>
+												<ComboBoxItem Content="xfs" Tag="xfs"/>
+											</ComboBox>
+
+											<!-- Target Filename on USB -->
+											<TextBlock Name="lblPersistFileName" Grid.Row="3" Grid.Column="0" Text="Dateiname auf USB-Stick: " FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,0,8" Foreground="#4a5568"/>
+											<TextBox Name="txtPersistFileName" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Left" Width="360" Padding="4,2" Margin="0,0,0,8" Text="/persistence/ubuntu.dat"/>
+
+											<!-- Creation Button & Status -->
+											<StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
+												<Button Name="btnDoCreatePersistFile" Content="📥 .dat Datei auf USB erstellen" Padding="12,5" Background="#2b6cb0" Foreground="White" FontWeight="Bold" Cursor="Hand"/>
+												<TextBlock Name="txtPersistProgress" Text="" VerticalAlignment="Center" Margin="10,0,0,0" FontSize="11" Foreground="#2b6cb0" FontWeight="SemiBold"/>
+											</StackPanel>
+										</Grid>
+									</StackPanel>
+								</Border>
+							</StackPanel>
+						</Border>
+
+						<!-- Card 3: Anzeige & Design -->
+						<Border Grid.Row="3" Background="#f8fafc" BorderBrush="#cbd5e0" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12">
+							<StackPanel>
+								<TextBlock Name="lblJsonThemeTitle" Text="🎨 Anzeige &amp; Menüdesign" FontWeight="Bold" FontSize="13" Foreground="#2d3748" Margin="0,0,0,10"/>
+								<Grid>
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition Width="240"/>
+										<ColumnDefinition Width="*"/>
+									</Grid.ColumnDefinitions>
+									<Grid.RowDefinitions>
+										<RowDefinition Height="Auto"/>
+										<RowDefinition Height="Auto"/>
+										<RowDefinition Height="Auto"/>
+									</Grid.RowDefinitions>
+
+									<TextBlock Name="lblResolution" Grid.Row="0" Grid.Column="0" Text="Auflösung (gfxmode): " FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,0,8" Foreground="#4a5568"/>
+									<ComboBox Name="cbResolution" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Left" Width="220" IsEditable="True" Padding="6,4" Margin="0,0,0,8">
+										<ComboBoxItem Content="800x600"/>
+										<ComboBoxItem Content="1024x768"/>
+										<ComboBoxItem Content="1280x720"/>
+										<ComboBoxItem Content="1920x1080"/>
+										<ComboBoxItem Content="max"/>
+									</ComboBox>
+
+									<TextBlock Name="lblThemePath" Grid.Row="1" Grid.Column="0" Text="Theme-Dateipfad: " FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,0,8" Foreground="#4a5568"/>
+									<TextBox Name="txtThemePath" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Left" Width="360" Padding="6,4" Margin="0,0,0,8" ToolTip="z.B. /ventoy/theme/theme.txt"/>
+
+									<TextBlock Name="lblMenuMode" Grid.Row="2" Grid.Column="0" Text="Standard-Menümodus: " FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#4a5568"/>
+									<ComboBox Name="cbMenuMode" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left" Width="220" Padding="6,4">
+										<ComboBoxItem Name="cbiMenuModeList" Content="0 (Listenansicht)" Tag="0"/>
+										<ComboBoxItem Name="cbiMenuModeTree" Content="1 (Baumansicht)" Tag="1"/>
+									</ComboBox>
+								</Grid>
+							</StackPanel>
+						</Border>
+
+						<!-- Card 4: Bypass & Save -->
+						<Border Grid.Row="4" Background="#f8fafc" BorderBrush="#cbd5e0" BorderThickness="1" CornerRadius="6" Padding="14">
+							<StackPanel>
+								<TextBlock Name="lblJsonBypassTitle" Text="🛡️ Kompatibilität &amp; Windows 11" FontWeight="Bold" FontSize="13" Foreground="#2d3748" Margin="0,0,0,10"/>
+								<CheckBox Name="chkWin11Bypass" Content="Windows 11 Bypass aktivieren (TPM, CPU, Secure Boot Prüfungen umgehen)" Margin="0,0,0,14" VerticalAlignment="Center" FontWeight="SemiBold"/>
+								<Button Name="btnSaveJson" Content="💾 ventoy.json speichern" HorizontalAlignment="Left" Padding="18,7" Background="#276749" Foreground="White" FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
+							</StackPanel>
+						</Border>
+					</Grid>
+				</ScrollViewer>
+			</TabItem>
+
+			<!-- TAB 4: Vorschau & Speichern -->
+			<TabItem Name="tabPreview" Header="💾  Vorschau &amp; Speichern (Grub)">
+				<Grid Margin="12">
+					<Grid.RowDefinitions>
+						<RowDefinition Height="*"/>
+						<RowDefinition Height="Auto"/>
+					</Grid.RowDefinitions>
+					<TextBox Name="txtPreview" Grid.Row="0" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="13" Padding="8" Background="#fafafa" BorderBrush="#cbd5e0"/>
+					<Button Name="btnSaveGrub" Grid.Row="1" Content="💾 In ventoy_grub.cfg speichern" Margin="0,12,0,0" Height="38" FontWeight="Bold" FontSize="13" Background="#276749" Foreground="White" BorderThickness="0" Cursor="Hand"/>
+				</Grid>
+			</TabItem>
+		</TabControl>
+	</Grid>
+</Window>
