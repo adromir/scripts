@@ -1,0 +1,145 @@
+name: Build Ventoy Minimal GRUB2 ISO
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release Tag (e.g. v1.0.0 or latest)'
+        required: false
+        default: 'latest'
+        type: string
+      create_release:
+        description: 'Publish / Update GitHub Release'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build-iso:
+    name: Build Universal Minimal GRUB2 ISO
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install GRUB & ISO build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            grub-pc-bin \
+            grub-efi-amd64-bin \
+            grub-efi-ia32-bin \
+            grub-common \
+            xorriso \
+            mtools
+
+      - name: Prepare ISO root directory and embedded GRUB configuration
+        run: |
+          mkdir -p iso_root/boot/grub
+          cat << 'EOF' > iso_root/boot/grub/grub.cfg
+          # =========================================================================
+          # Ventoy Minimal GRUB2 Local Boot Dispatcher
+          # Automatically searches all partitions for /ventoy/ventoy_grub.cfg
+          # =========================================================================
+          set default=0
+          set timeout=0
+
+          # Load essential partition and filesystem modules
+          insmod part_gpt
+          insmod part_msdos
+          insmod fat
+          insmod exfat
+          insmod ntfs
+          insmod ext2
+          insmod iso9660
+          insmod search
+          insmod search_fs_file
+          insmod configfile
+          insmod test
+          insmod echo
+          insmod normal
+          insmod chain
+          insmod boot
+
+          # Search for /ventoy/ventoy_grub.cfg across all accessible drives/partitions
+          search --no-floppy --file --set=root /ventoy/ventoy_grub.cfg
+
+          if [ -f ($root)/ventoy/ventoy_grub.cfg ]; then
+              configfile ($root)/ventoy/ventoy_grub.cfg
+          elif [ -f /ventoy/ventoy_grub.cfg ]; then
+              configfile /ventoy/ventoy_grub.cfg
+          else
+              echo "========================================================================"
+              echo "  [VENTOY LOCAL BOOT] ERROR: Configuration file not found!              "
+              echo "========================================================================"
+              echo ""
+              echo "  Could not find '/ventoy/ventoy_grub.cfg' on any accessible partition. "
+              echo ""
+              echo "  Please verify that your Ventoy USB drive contains:                    "
+              echo "    /ventoy/ventoy_grub.cfg                                             "
+              echo ""
+              echo "  Use 'Ventoy Local Boot Configurator' to create and save your config.  "
+              echo "========================================================================"
+              echo ""
+              echo "Press ENTER to continue to GRUB command line..."
+              read
+          fi
+          EOF
+
+      - name: Build Multi-Boot Minimal ISO (BIOS + UEFI x86_64 + UEFI IA32)
+        run: |
+          grub-mkrescue \
+            --output="ventoy_localboot.iso" \
+            --modules="part_gpt part_msdos fat exfat ntfs ext2 iso9660 search search_fs_file configfile test echo normal chain boot" \
+            --locales="" \
+            --fonts="" \
+            --themes="" \
+            iso_root/
+
+          ls -lh ventoy_localboot.iso
+
+      - name: Compute SHA256 checksum
+        run: |
+          sha256sum ventoy_localboot.iso > ventoy_localboot.iso.sha256
+          cat ventoy_localboot.iso.sha256
+
+      - name: Upload ISO Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ventoy_localboot_iso
+          path: |
+            ventoy_localboot.iso
+            ventoy_localboot.iso.sha256
+          retention-days: 90
+
+      - name: Publish / Update GitHub Release
+        if: ${{ inputs.create_release }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: Ventoy Minimal GRUB2 ISO (${{ inputs.release_tag }})
+          body: |
+            ## ⚡ Ventoy Minimal GRUB2 Local Boot ISO
+
+            Universal static minimal GRUB2 boot image for Ventoy (`VTOY_DEFAULT_IMAGE`).
+
+            ### ✨ Features
+            - **Multi-Boot Architecture:** Supports **UEFI x86_64**, **UEFI IA32**, and **BIOS / Legacy MBR**.
+            - **Embedded Filesystem Modules:** FAT, exFAT, NTFS, ext2/3/4, ISO9660, GPT, MBR.
+            - **Dynamic Config Discovery:** Automatically searches all storage partitions for `/ventoy/ventoy_grub.cfg` and loads it via `configfile`.
+            - **Minimal Footprint:** No extra themes, fonts, or locales—fast startup.
+
+            ### 📦 Files
+            - `ventoy_localboot.iso`: The bootable ISO image
+            - `ventoy_localboot.iso.sha256`: SHA256 checksum
+          files: |
+            ventoy_localboot.iso
+            ventoy_localboot.iso.sha256
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
