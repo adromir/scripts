@@ -1,6 +1,6 @@
-# Scripts (Bash and Powershell)
+# Scripts & Automation Utilities (PowerShell, Bash, Python, Userscripts)
 
-The `scripts` folder contains two main subfolders: `powershell` and `bash`.
+The `scripts` repository contains automation tools, desktop utilities, and scripts categorized across four primary subfolders: `powershell`, `bash`, `python`, and `userscripts`.
 
 ## `scripts/powershell/`
 
@@ -54,12 +54,43 @@ Contains scripts for managing EXIF metadata.
     * Contains: `exif_date_update.ps1`
     * Summary: Updates missing EXIF dates (`DateTimeOriginal`, `CreateDate`) in images (JPG, DNG, CR2) by parsing filenames like `IMG_YYYYMMDD_HHMMSS[_TAG].ext` and updates file system timestamps.
 * **`create-xmp/`**:
-    * Contains: `create-xmpps1`
-    * Summary: Runs through all Media- Files in a selected Folder (Option to choose to include Subfolders) and creates a XMP- Sidecar File
+    * Contains: `create-xmp.ps1`
+    * Summary: Runs through all Media files in a selected folder (with option to include subfolders) and creates corresponding XMP sidecar files.
+
+### `misc/`
+Contains miscellaneous utilities and benchmarking tools.
+
+* **`llama-bench/`**:
+    * Contains: `llama.bench.ps1`
+    * Summary: Modern WPF GUI benchmark suite for `llama.cpp` builds (`llama-cli.exe`), featuring multi-build comparative testing, EN/DE localization, standardized scenarios, and offline interactive Chart.js HTML reports.
+* **`ventoy_boot/`**:
+    * Contains: `VentoyLocalBootEditor.ps1`, `MainWindow.xaml`, `lang/de.json`, `lang/en.json`
+    * Summary: Standalone WPF GUI configurator to manage local disk boot entries (`ventoy_grub.cfg`), raw boot-sector UUID detection, multi-OS chainloaders, and global Ventoy settings (`ventoy.json`).
+
+### `music/`
+Contains scripts for audio processing and soundscape archiving.
+
+* **`ambient-mixer/`**:
+    * Contains: `ambient-mixer-download.ps1`, `config.json`
+    * Summary: WPF GUI script to download complete ambient sound mixes (XML configuration, audio tracks, and cover image) from ambient-mixer.com for offline playback.
+
+### `postgres/`
+Contains database management and migration tools.
+
+* **`migrate/`**:
+    * Contains: `pg_migrate_pro.ps1`, `MainWindow.xaml`, `config.json`, `lang/`
+    * Summary: Professional, asynchronous WPF GUI tool for PostgreSQL and MySQL migrations, backups, and restores with DPAPI encrypted credential storage, multi-language support, and automated tool downloading.
 
 ## `scripts/bash/`
 
 This folder contains further subdirectories for Bash scripts:
+
+### `docker/`
+Contains scripts for Docker container management.
+
+* **`auto-compose/`**:
+    * Contains: `auto-compose.sh`
+    * Summary: Inspects running Docker containers and generates clean, standalone `docker-compose.yml` (v3.8) files with filtered environment variables, mount points, and static external networks.
 
 ### `exif/`
 Contains scripts for managing EXIF metadata using Bash.
@@ -74,12 +105,24 @@ Contains scripts related to Immich photo management.
 * **`un-stacker/`**:
     * Contains: `immich-stacker.sh`, `immich-unstacker.sh`
     * Summary: Contains two scripts (`immich-stacker.sh`, `immich-unstacker.sh`) that use the Immich API to automatically stack related assets based on filename patterns or unstack all existing asset stacks.
-    
+
+## `scripts/python/`
+
+This folder contains standalone Python desktop and media applications:
+
+### `ambient-player/`
+Contains media playback tools for multi-track ambient audio.
+
+* **`ambient-player/`**:
+    * Contains: `ambient.player.py`, `player_ui.qml`, `player_settings.conf`
+    * Summary: Modern PySide6 (Qt Quick / QML Material Dark) and Pygame multi-channel ambient sound player designed to load and play XML presets downloaded via the Ambient Mixer Downloader script.
+
 ## `scripts/userscripts/`
 
-This folder contains further subdirectories for Userscript scripts (which can be used by Browser Extensions like Tampermonkey), categorized by function: 
+This folder contains further subdirectories for Userscripts (which can be used by Browser Extensions like Tampermonkey), categorized by function: 
 
 ### `gemini-snippets/`
 
-Userscript for gemini.google.com to create a freely customizable Toolbar on the Website that allows to store your own Snippets for frequent use in Gemini
-  
+* **`gemini-snippets/`**:
+    * Contains: `google_gemini_mod.user.js`, `gemini_mod_drive.js`, `gemini_mod_styles.js`, `gemini_mod_utils.js`
+    * Summary: Modular browser userscript for gemini.google.com providing a freely customizable toolbar to manage, insert, and sync custom prompt snippets via Google Drive.
