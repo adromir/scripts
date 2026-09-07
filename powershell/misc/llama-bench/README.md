@@ -22,8 +22,16 @@ Manually running `llama-cli.exe` commands with identical prompts, context length
 
 ### Key Advantages
 
-* 🎯 **Side-by-Side Multi-Build Testing:** Add multiple `llama-cli.exe` binaries and benchmark them sequentially under identical hardware and parameter constraints.
-* 📊 **Interactive Offline HTML Reports:** Generates standalone, responsive HTML reports featuring [Chart.js](https://www.chartjs.org/) bar charts and granular timing breakdown tables. Auto-downloads Chart.js locally (`assets/`) for completely offline viewing.
+* 🎯 **3 Flexible Benchmark Modes:**
+  * **Compare Builds:** Benchmark multiple `llama-cli.exe` builds (CUDA vs. Vulkan vs. CPU AVX2) using 1 model and identical parameters.
+  * **Compare Models:** Benchmark 1 executable across multiple `.gguf` models (e.g. comparing quants Q4_K_M vs. Q5_K_M vs. Q8_0, or different model architectures).
+  * **Parameter Sweep:** Benchmark 1 executable and 1 model across parameter scaling configurations (threads, GPU offload layers, context sizes).
+* ⚡ **Quick Sweep Presets:** 1-click generators for standard scaling experiments:
+  * **Thread Scaling:** 2, 4, 8, 12, 16 threads
+  * **GPU Offload Scaling:** 0 (pure CPU), 16, 33, 99 (full offload) layers
+  * **Context Scaling:** 1024, 2048, 4096, 8192 tokens
+* 📜 **Bundled Benchmark Jinja Template:** Includes a clean, zero-overhead `templates/benchmark.jinja` template to standardize chat formatting and eliminate conversational bloat during benchmarking.
+* 📊 **Interactive Offline HTML Reports:** Generates standalone, responsive HTML reports featuring bundled [Chart.js](https://www.chartjs.org/) bar charts and granular timing breakdown tables. Auto-adapts charts and column headers based on active benchmark mode.
 * 🧪 **Standardized Real-World Scenarios:**
   * **Scenario 1 (Short Query):** Measures first-token responsiveness and low-latency throughput (64 output tokens).
   * **Scenario 2 (Code & Logic):** Evaluates balanced multi-step inference throughput (128 output tokens).
@@ -34,7 +42,6 @@ Manually running `llama-cli.exe` commands with identical prompts, context length
   * **Token Generation Speed** (tokens/second)
 * 🎨 **Modern Dark WPF GUI:** Built with an eye-friendly Catppuccin-inspired dark theme, real-time progress bar, responsive background dispatching, and live execution logging.
 * 🌐 **Live Multilingual UI:** Seamless instant switching between **English** and **German** interface text.
-* ⚙️ **Flexible Parameter Tuning:** Full control over CPU threads (`-t`), GPU offload layers (`-ngl`), context size (`-c`), and custom Jinja chat template paths (`--chat-template-file`).
 
 ---
 
@@ -94,20 +101,39 @@ cd E:\scripts\powershell\misc\llama-bench
 
 ### 2. Configure Benchmark Run
 
-1. **Model Selection:** Click **Browse...** to select your `.gguf` model file.
-2. **Set Parameters:**
-   - **Threads (`-t`)**: Adjust CPU threads (defaults to `8`).
-   - **GPU Layers (`-ngl`)**: Set offload layers (defaults to `99` for full GPU offload).
-   - **Context Size (`-c`)**: Context window size in tokens (defaults to `4096`).
-   - **Chat Template**: Optional path to a `.jinja` template or template keyword.
-3. **Add Executables:** Click **Add Build...** and select one or more `llama-cli.exe` files.
-4. **Select Scenarios:** Toggle any combination of the 3 built-in scenarios.
+1. **Select Benchmark Mode:**
+   - **Compare Builds:** Select 1 GGUF model and base parameters, then click **Add Build...** to add multiple `llama-cli.exe` binaries.
+   - **Compare Models:** Select 1 `llama-cli.exe` binary and base parameters, then click **Add Models...** to add multiple `.gguf` files (supports multi-selection for comparing quants like Q4_K_M vs Q5_K_M vs Q8_0).
+   - **Parameter Sweep:** Select 1 `llama-cli.exe` binary and 1 GGUF model. Add custom parameter configurations or select a **Quick Sweep Preset** (Threads `2, 4, 8, 12, 16`, GPU Offload `0, 16, 33, 99`, or Context `1024, 2048, 4096, 8192`) and click **+ Add Sweep**.
+2. **Chat Template (Optional):** Click **Use Benchmark Jinja** to load the bundled zero-overhead template or **Browse...** to pick a custom `.jinja` file.
+3. **Select Scenarios:** Toggle any combination of the 3 built-in scenarios (Short Query, Code & Logic, Long Context Prefill).
 
 ### 3. Run & View Results
 
 1. Click **Start Benchmark**.
 2. Observe live progress and timings in the log window.
 3. Once completed, click **Open HTML Report** to view the generated interactive Chart.js comparison in your default browser.
+
+---
+
+## 📁 Architecture & File Structure
+
+The project strictly separates functional business logic, graphical layout/design, and multilingual resources:
+
+```text
+powershell/misc/llama-bench/
+├── llama.bench.ps1               # Pure functional controller & benchmark execution engine
+├── MainWindow.xaml               # Declarative WPF XAML layout, control styles & Catppuccin theme
+├── lang/
+│   ├── en.json                   # English UI and status translations
+│   └── de.json                   # German UI and status translations
+├── templates/
+│   ├── benchmark.jinja           # Minimal zero-overhead benchmark chat template
+│   └── report_template.html      # Responsive HTML/CSS/Chart.js report layout template
+├── assets/                       # Bundled offline libraries (chart.umd.min.js)
+├── README.md                     # Documentation
+└── MEMORY.md                     # Project context & decision log (git-ignored)
+```
 
 ---
 

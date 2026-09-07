@@ -1,0 +1,300 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="llama.cpp Build Benchmark Suite"
+        Width="1020" Height="820" MinWidth="900" MinHeight="720"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E2E" FontFamily="Segoe UI" FontSize="13" Foreground="#CDD6F4">
+
+    <Window.Resources>
+        <!-- Standard Button Style with subtle hover effects -->
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#45475A"/>
+            <Setter Property="Foreground" Value="#CDD6F4"/>
+            <Setter Property="BorderBrush" Value="#585B70"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#585B70"/>
+                                <Setter Property="BorderBrush" Value="#89B4FA"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#313244"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Primary Start Benchmark Button -->
+        <Style x:Key="PrimaryRunButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#A6E3A1"/>
+            <Setter Property="Foreground" Value="#11111B"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#94E2D5"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#A6E3A1"/>
+                                <Setter Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Secondary Open Report Button -->
+        <Style x:Key="SecondaryReportButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#89B4FA"/>
+            <Setter Property="Foreground" Value="#11111B"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#B4BEFE"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#89B4FA"/>
+                                <Setter Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="180"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Top Bar: Title, Mode Selector and Language Selector -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock x:Name="LblAppTitle" FontSize="18" FontWeight="Bold" Foreground="#89B4FA" Text="llama.cpp Build Benchmark Suite" VerticalAlignment="Center"/>
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <!-- Benchmark Mode Selector -->
+                <TextBlock x:Name="LblBenchmarkMode" Foreground="#A6ADC8" Margin="0,0,8,0" Text="Benchmark Mode:" VerticalAlignment="Center"/>
+                <ComboBox x:Name="CmbBenchmarkMode" Height="26" Width="180" Margin="0,0,16,0">
+                    <ComboBoxItem Content="Compare Builds" Tag="builds" IsSelected="True"/>
+                    <ComboBoxItem Content="Compare Models" Tag="models"/>
+                    <ComboBoxItem Content="Parameter Sweep" Tag="params"/>
+                </ComboBox>
+
+                <!-- Language Selector -->
+                <TextBlock x:Name="LblLanguage" Foreground="#A6ADC8" Margin="0,0,8,0" Text="Language:" VerticalAlignment="Center"/>
+                <ComboBox x:Name="CmbLanguage" Height="26" Width="100"/>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- Model & Parameters Setup Box -->
+        <GroupBox x:Name="GrpSetup" BorderBrush="#45475A" Foreground="#89B4FA" Grid.Row="1" Header="Benchmark Setup &amp; Base Parameters" Margin="0,0,0,12" Padding="10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" x:Name="RowSingleCliDef"/>
+                    <RowDefinition Height="Auto" x:Name="RowSingleModelDef"/>
+                    <RowDefinition Height="Auto" x:Name="RowBaseParamsDef"/>
+                    <RowDefinition Height="Auto" x:Name="RowChatTemplateDef"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="110"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Row 0: Single Executable (used in Models and Params comparison modes) -->
+                <TextBlock x:Name="LblSingleCli" Foreground="#CDD6F4" Grid.Column="0" Grid.Row="0" Text="llama-cli.exe Path:" VerticalAlignment="Center"/>
+                <TextBox x:Name="TxtSingleCli" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Grid.Row="0" Grid.ColumnSpan="2" Height="26" Margin="0,2,8,2" Padding="4,2"/>
+                <Button x:Name="BtnBrowseSingleCli" Style="{StaticResource ActionButtonStyle}" Content="Browse..." Grid.Column="3" Grid.Row="0" Height="26"/>
+
+                <!-- Row 1: Single GGUF Model (used in Builds and Params comparison modes) -->
+                <TextBlock x:Name="LblModelPath" Foreground="#CDD6F4" Grid.Column="0" Grid.Row="1" Text="GGUF Model Path:" VerticalAlignment="Center" Margin="0,4,0,0"/>
+                <TextBox x:Name="TxtModelPath" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Grid.Row="1" Grid.ColumnSpan="2" Height="26" Margin="0,4,8,2" Padding="4,2"/>
+                <Button x:Name="BtnBrowseModel" Style="{StaticResource ActionButtonStyle}" Content="Browse..." Grid.Column="3" Grid.Row="1" Height="26" Margin="0,4,0,0"/>
+
+                <!-- Row 2: Base Parameters (used in Builds and Models comparison modes) -->
+                <Grid Grid.Column="0" Grid.ColumnSpan="4" Grid.Row="2" Margin="0,8,0,0" x:Name="GridBaseParams">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="30"/>
+                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="30"/>
+                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="80"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="LblThreads" Foreground="#CDD6F4" Grid.Column="0" Text="Threads (-t):" VerticalAlignment="Center"/>
+                    <TextBox x:Name="TxtThreads" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Height="26" HorizontalContentAlignment="Center" Text="8" Padding="2"/>
+
+                    <TextBlock x:Name="LblGpuLayers" Foreground="#CDD6F4" Grid.Column="3" Text="GPU Layers (-ngl):" VerticalAlignment="Center"/>
+                    <TextBox x:Name="TxtGpuLayers" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="4" Height="26" HorizontalContentAlignment="Center" Text="99" Padding="2"/>
+
+                    <TextBlock x:Name="LblCtxSize" Foreground="#CDD6F4" Grid.Column="6" Text="Context Size (-c):" VerticalAlignment="Center"/>
+                    <TextBox x:Name="TxtCtxSize" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="7" Height="26" HorizontalContentAlignment="Center" Text="4096" Padding="2"/>
+                </Grid>
+
+                <!-- Row 3: Chat Template & Template Preset (always available) -->
+                <TextBlock x:Name="LblChatTemplate" Foreground="#CDD6F4" Grid.Column="0" Grid.Row="3" Margin="0,8,0,0" Text="Chat Template:" VerticalAlignment="Center"/>
+                <TextBox x:Name="TxtChatTemplate" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Grid.Row="3" Height="26" Margin="0,8,8,0" Padding="4,2" ToolTip="Leave blank for GGUF default, enter template name (e.g., chatml) or path to .jinja file"/>
+                <Button x:Name="BtnBrowseTemplate" Style="{StaticResource ActionButtonStyle}" Content="Browse..." Grid.Column="2" Grid.Row="3" Height="26" Margin="0,8,8,0"/>
+                <Button x:Name="BtnBenchmarkTemplate" Style="{StaticResource ActionButtonStyle}" Content="Use Benchmark Jinja" Grid.Column="3" Grid.Row="3" Height="26" Margin="0,8,0,0" ToolTip="Load the minimal bundled benchmark.jinja template"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- Middle: Test Items to Compare & Scenarios -->
+        <Grid Grid.Row="2" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="340"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Mode 1: Builds ListBox Panel -->
+            <GroupBox x:Name="GrpBuilds" BorderBrush="#45475A" Foreground="#89B4FA" Grid.Column="0" Header="llama.cpp Executables (llama-cli.exe)" Padding="10" Visibility="Visible">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,8,0,0" Orientation="Horizontal">
+                        <Button x:Name="BtnAddBuild" Style="{StaticResource ActionButtonStyle}" Content="Add Build..." Height="28" Margin="0,0,8,0" Width="110"/>
+                        <Button x:Name="BtnRemoveBuild" Style="{StaticResource ActionButtonStyle}" Content="Remove Selected" Height="28" Margin="0,0,8,0" Width="130"/>
+                        <Button x:Name="BtnClearBuilds" Style="{StaticResource ActionButtonStyle}" Content="Clear All" Height="28" Width="90"/>
+                    </StackPanel>
+                    <ListBox x:Name="LstBuilds" Background="#181825" BorderBrush="#585B70" Foreground="#CDD6F4" SelectionMode="Extended"/>
+                </DockPanel>
+            </GroupBox>
+
+            <!-- Mode 2: Models ListBox Panel -->
+            <GroupBox x:Name="GrpModels" BorderBrush="#45475A" Foreground="#89B4FA" Grid.Column="0" Header="GGUF Models to Compare (.gguf)" Padding="10" Visibility="Collapsed">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,8,0,0" Orientation="Horizontal">
+                        <Button x:Name="BtnAddModels" Style="{StaticResource ActionButtonStyle}" Content="Add Models..." Height="28" Margin="0,0,8,0" Width="110"/>
+                        <Button x:Name="BtnRemoveModel" Style="{StaticResource ActionButtonStyle}" Content="Remove Selected" Height="28" Margin="0,0,8,0" Width="130"/>
+                        <Button x:Name="BtnClearModels" Style="{StaticResource ActionButtonStyle}" Content="Clear All" Height="28" Width="90"/>
+                    </StackPanel>
+                    <ListBox x:Name="LstModels" Background="#181825" BorderBrush="#585B70" Foreground="#CDD6F4" SelectionMode="Extended"/>
+                </DockPanel>
+            </GroupBox>
+
+            <!-- Mode 3: Parameter Configurations Sweep Panel -->
+            <GroupBox x:Name="GrpParams" BorderBrush="#45475A" Foreground="#89B4FA" Grid.Column="0" Header="Parameter Configurations to Sweep" Padding="10" Visibility="Collapsed">
+                <DockPanel>
+                    <!-- Custom Parameter Entry & Quick Sweep Controls at the Top of GrpParams -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <!-- Custom Config Row -->
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="75"/>
+                                <ColumnDefinition Width="80"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="TxtNewParamName" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="0" Height="26" Margin="0,0,6,0" Padding="4,2" ToolTip="Configuration Name (e.g. 8T-FullGPU)"/>
+                            <TextBox x:Name="TxtNewParamThreads" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Height="26" Margin="0,0,6,0" HorizontalContentAlignment="Center" Text="8" ToolTip="Threads (-t)"/>
+                            <TextBox x:Name="TxtNewParamGpu" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="2" Height="26" Margin="0,0,6,0" HorizontalContentAlignment="Center" Text="99" ToolTip="GPU Layers (-ngl)"/>
+                            <TextBox x:Name="TxtNewParamCtx" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="3" Height="26" Margin="0,0,6,0" HorizontalContentAlignment="Center" Text="4096" ToolTip="Context Size (-c)"/>
+                            <Button x:Name="BtnAddCustomParam" Style="{StaticResource ActionButtonStyle}" Content="+ Add" Grid.Column="4" Height="26"/>
+                        </Grid>
+
+                        <!-- Quick Sweep Presets Row -->
+                        <DockPanel Margin="0,2,0,0">
+                            <TextBlock x:Name="LblQuickSweep" Foreground="#A6ADC8" Text="Quick Sweep Presets:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <Button x:Name="BtnApplyQuickSweep" Style="{StaticResource ActionButtonStyle}" DockPanel.Dock="Right" Content="+ Add Sweep" Height="26" Width="100"/>
+                            <ComboBox x:Name="CmbQuickSweep" Height="26" Margin="0,0,8,0">
+                                <ComboBoxItem Content="Sweep Threads (2, 4, 8, 12, 16)" Tag="threads" IsSelected="True"/>
+                                <ComboBoxItem Content="Sweep GPU Offload (0, 16, 33, 99)" Tag="gpu"/>
+                                <ComboBoxItem Content="Sweep Context Window (1024, 2048, 4096, 8192)" Tag="context"/>
+                            </ComboBox>
+                        </DockPanel>
+                    </StackPanel>
+
+                    <!-- Bottom Buttons -->
+                    <StackPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,8,0,0" Orientation="Horizontal">
+                        <Button x:Name="BtnRemoveParam" Style="{StaticResource ActionButtonStyle}" Content="Remove Selected" Height="28" Margin="0,0,8,0" Width="130"/>
+                        <Button x:Name="BtnClearParams" Style="{StaticResource ActionButtonStyle}" Content="Clear All" Height="28" Width="90"/>
+                    </StackPanel>
+
+                    <!-- Parameter Configs ListBox -->
+                    <ListBox x:Name="LstParams" Background="#181825" BorderBrush="#585B70" Foreground="#CDD6F4" SelectionMode="Extended"/>
+                </DockPanel>
+            </GroupBox>
+
+            <!-- Test Suite Scenarios (shared across all modes) -->
+            <GroupBox x:Name="GrpSuite" BorderBrush="#45475A" Foreground="#89B4FA" Grid.Column="2" Header="Test Suite Scenarios" Padding="10">
+                <StackPanel>
+                    <CheckBox x:Name="ChkScenShort" Content="Scenario 1: Short Query (Quick Q&amp;A)" Foreground="#CDD6F4" IsChecked="True" Margin="0,8,0,8"/>
+                    <CheckBox x:Name="ChkScenReason" Content="Scenario 2: Code &amp; Logic (Balanced)" Foreground="#CDD6F4" IsChecked="True" Margin="0,0,0,8"/>
+                    <CheckBox x:Name="ChkScenPrefill" Content="Scenario 3: Long Context (Prefill)" Foreground="#CDD6F4" IsChecked="True" Margin="0,0,0,8"/>
+                    <TextBlock x:Name="LblScenEvalHeader" FontWeight="Bold" Foreground="#A6ADC8" Margin="0,16,0,4" Text="Scenarios evaluate:"/>
+                    <TextBlock x:Name="LblScenPromptSpeed" Foreground="#A6ADC8" Margin="8,0,0,2" Text="• Prompt evaluation throughput (tokens/sec)"/>
+                    <TextBlock x:Name="LblScenGenSpeed" Foreground="#A6ADC8" Margin="8,0,0,2" Text="• Generation throughput (tokens/sec)"/>
+                    <TextBlock x:Name="LblScenLoadTime" Foreground="#A6ADC8" Margin="8,0,0,2" Text="• Cold model load time (milliseconds)"/>
+                </StackPanel>
+            </GroupBox>
+        </Grid>
+
+        <!-- Actions and Progress -->
+        <DockPanel Grid.Row="3" Margin="0,0,0,8">
+            <Button x:Name="BtnRun" Style="{StaticResource PrimaryRunButtonStyle}" Content="Start Benchmark" Height="32" Margin="0,0,10,0" Width="150"/>
+            <Button x:Name="BtnReport" Style="{StaticResource SecondaryReportButtonStyle}" Content="Open HTML Report" Height="32" IsEnabled="False" Margin="0,0,10,0" Width="150"/>
+            <ProgressBar x:Name="PrgStatus" Background="#313244" BorderBrush="#585B70" Foreground="#89B4FA" Height="32" Maximum="100" Minimum="0" Value="0"/>
+        </DockPanel>
+
+        <!-- Log Output -->
+        <GroupBox x:Name="GrpLog" BorderBrush="#45475A" Foreground="#89B4FA" Grid.Row="4" Header="Execution Log" Padding="6">
+            <TextBox x:Name="TxtLog" Background="#11111B" BorderThickness="0" FontFamily="Consolas" FontSize="11" Foreground="#A6ADC8" HorizontalScrollBarVisibility="Auto" IsReadOnly="True" VerticalScrollBarVisibility="Auto"/>
+        </GroupBox>
+
+        <!-- Status Bar -->
+        <StatusBar Grid.Row="5" Background="#181825" Foreground="#A6ADC8" Margin="0,6,0,0">
+            <StatusBarItem>
+                <TextBlock x:Name="TxtStatus" Text="Ready"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>

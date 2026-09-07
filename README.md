@@ -61,8 +61,8 @@ Contains scripts for managing EXIF metadata.
 Contains miscellaneous utilities and benchmarking tools.
 
 * **`llama-bench/`**:
-    * Contains: `llama.bench.ps1`
-    * Summary: Modern WPF GUI benchmark suite for `llama.cpp` builds (`llama-cli.exe`), featuring multi-build comparative testing, EN/DE localization, standardized scenarios, and offline interactive Chart.js HTML reports.
+    * Contains: `llama.bench.ps1`, `MainWindow.xaml`, `templates/`, `lang/`, `assets/`
+    * Summary: Modern WPF GUI benchmark suite for `llama.cpp` supporting 3 comparison dimensions (multi-build, multi-model/quant, and parameter sweep scaling), EN/DE localization, bundled Chart.js offline reports, and zero-overhead benchmark Jinja template.
 * **`ventoy_boot/`**:
     * Contains: `VentoyLocalBootEditor.ps1`, `MainWindow.xaml`, `lang/de.json`, `lang/en.json`
     * Summary: Standalone WPF GUI configurator to manage local disk boot entries (`ventoy_grub.cfg`), raw boot-sector UUID detection, multi-OS chainloaders, and global Ventoy settings (`ventoy.json`).

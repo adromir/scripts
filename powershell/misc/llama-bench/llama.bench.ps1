@@ -1,7 +1,12 @@
 # ==============================================================================
 # llama.cpp Benchmark Suite
-# Author: Adromir ([https://github.com/adromir](https://github.com/adromir))
-# Description: Automated real-world performance benchmark for llama.cpp builds.
+# Author: Adromir (https://github.com/adromir)
+# Description: Automated real-world performance benchmark for llama.cpp.
+# Features:
+#   1. Compare multiple llama.cpp builds with 1 model
+#   2. Compare multiple GGUF models with 1 build
+#   3. Parameter Sweep across thread, GPU, or context configurations
+# Architecture: Clean separation of functional code, layout (XAML/HTML), and i18n.
 # ==============================================================================
 
 Add-Type -AssemblyName PresentationFramework
@@ -9,67 +14,72 @@ Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
 Add-Type -AssemblyName System.Windows.Forms
 
-# Localization dictionary supporting English and German
-$Localization = @{
-	"en" = @{
-		"Title"            = "llama.cpp Build Benchmark Suite"
-		"Language"         = "Language:"
-		"ModelGroup"       = "Model & Parameters"
-		"ModelPath"        = "GGUF Model Path:"
-		"Browse"           = "Browse..."
-		"Threads"          = "Threads (-t):"
-		"GpuLayers"        = "GPU Layers (-ngl):"
-		"CtxSize"          = "Context Size (-c):"
-		"ChatTemplate"     = "Chat Template (Jinja File or Identifier):"
-		"BuildsGroup"      = "llama.cpp Executables (llama-cli.exe)"
-		"AddBuild"         = "Add Build..."
-		"RemoveBuild"      = "Remove Selected"
-		"ClearBuilds"      = "Clear All"
-		"SuiteGroup"       = "Test Suite Scenarios"
-		"ScenShort"        = "Scenario 1: Short Query (Latency / Quick Q&A)"
-		"ScenReason"       = "Scenario 2: Code & Logic (Balanced Inference)"
-		"ScenPrefill"      = "Scenario 3: Long Context (Prefill Throughput)"
-		"RunBtn"           = "Start Benchmark"
-		"ReportBtn"        = "Open HTML Report"
-		"StatusReady"      = "Ready"
-		"StatusRunning"    = "Running benchmark on: "
-		"StatusDone"       = "Benchmark completed successfully."
-		"LogHeader"        = "Execution Log"
-		"SelectModelMsg"   = "Please select a valid GGUF model file."
-		"SelectBuildsMsg"  = "Please add at least one llama-cli.exe executable."
-		"SelectScenMsg"    = "Please select at least one benchmark scenario."
-	}
-	"de" = @{
-		"Title"            = "llama.cpp Build Benchmark Suite"
-		"Language"         = "Sprache:"
-		"ModelGroup"       = "Modell & Parameter"
-		"ModelPath"        = "GGUF-Modellpfad:"
-		"Browse"           = "Durchsuchen..."
-		"Threads"          = "Threads (-t):"
-		"GpuLayers"        = "GPU-Layers (-ngl):"
-		"CtxSize"          = "Kontextgröße (-c):"
-		"ChatTemplate"     = "Chat-Template (Jinja-Datei oder Kennung):"
-		"BuildsGroup"      = "llama.cpp Executables (llama-cli.exe)"
-		"AddBuild"         = "Build hinzufügen..."
-		"RemoveBuild"      = "Auswahl entfernen"
-		"ClearBuilds"      = "Alle leeren"
-		"SuiteGroup"       = "Test-Suite Szenarien"
-		"ScenShort"        = "Szenario 1: Kurzabfrage (Latenz / Quick Q&A)"
-		"ScenReason"       = "Szenario 2: Code & Logik (Ausgewogene Inferenz)"
-		"ScenPrefill"      = "Szenario 3: Langer Kontext (Prefill-Durchsatz)"
-		"RunBtn"           = "Benchmark starten"
-		"ReportBtn"        = "HTML-Report öffnen"
-		"StatusReady"      = "Bereit"
-		"StatusRunning"    = "Benchmark läuft auf: "
-		"StatusDone"       = "Benchmark erfolgreich abgeschlossen."
-		"LogHeader"        = "Ausführungs-Log"
-		"SelectModelMsg"   = "Bitte wählen Sie eine gültige GGUF-Modelldatei aus."
-		"SelectBuildsMsg"  = "Bitte fügen Sie mindestens eine llama-cli.exe hinzu."
-		"SelectScenMsg"    = "Bitte wählen Sie mindestens ein Benchmark-Szenario aus."
+# --- Path Resolution ---
+$scriptDir = $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($scriptDir)) {
+	$scriptDir = Split-Path -Parent $PSCommandPath
+}
+if ([string]::IsNullOrWhiteSpace($scriptDir)) {
+	$scriptDir = (Get-Location).Path
+}
+
+$xamlPath     = Join-Path -Path $scriptDir -ChildPath "MainWindow.xaml"
+$langDir      = Join-Path -Path $scriptDir -ChildPath "lang"
+$templatePath = Join-Path -Path $scriptDir -ChildPath "templates\report_template.html"
+$jinjaPath    = Join-Path -Path $scriptDir -ChildPath "templates\benchmark.jinja"
+
+# Ensure MainWindow.xaml exists
+if (-not (Test-Path -Path $xamlPath)) {
+	[System.Windows.Forms.MessageBox]::Show("MainWindow.xaml not found in:`n$xamlPath", "Fatal Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+	exit 1
+}
+
+# --- Dynamic Localization Loader ---
+$global:Localization = @{}
+if (Test-Path -Path $langDir) {
+	Get-ChildItem -Path $langDir -Filter "*.json" | ForEach-Object {
+		$code = $_.BaseName.ToLower()
+		try {
+			$jsonRaw = Get-Content -Path $_.FullName -Raw -Encoding UTF8
+			$jsonObj = ConvertFrom-Json $jsonRaw
+			$dict = @{}
+			foreach ($prop in $jsonObj.psobject.Properties) {
+				$dict[$prop.Name] = $prop.Value
+			}
+			$global:Localization[$code] = $dict
+		}
+		catch {
+			Write-Warning "Failed to parse language file: $($_.FullName)"
+		}
 	}
 }
 
-# Test Suite scenario definitions
+if ($global:Localization.Count -eq 0) {
+	[System.Windows.Forms.MessageBox]::Show("No valid translation files found in:`n$langDir", "Fatal Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+	exit 1
+}
+
+# Determine default language
+$sysLang = [System.Globalization.CultureInfo]::CurrentUICulture.TwoLetterISOLanguageName.ToLower()
+$global:CurrentLang = if ($global:Localization.ContainsKey($sysLang)) { $sysLang } elseif ($global:Localization.ContainsKey("en")) { "en" } else { ($global:Localization.Keys | Select-Object -First 1) }
+
+function Get-LocalizedText {
+	param(
+		[string]$Key,
+		[object[]]$FormatArgs
+	)
+	$dict = $global:Localization[$global:CurrentLang]
+	if ($null -ne $dict -and $dict.ContainsKey($Key)) {
+		$val = [string]$dict[$Key]
+		if ($FormatArgs -and $FormatArgs.Count -gt 0) {
+			return ($val -f $FormatArgs)
+		}
+		return $val
+	}
+	return $Key
+}
+
+# --- Test Suite Scenarios ---
 $Scenarios = @(
 	@{
 		Id              = "short"
@@ -91,585 +101,555 @@ $Scenarios = @(
 	}
 )
 
-# WPF XAML Interface Definition
-[xml]$Xaml = @'
-<Window Background="#1E1E2E" FontFamily="Segoe UI" FontSize="13" Foreground="#CDD6F4" Height="780" Title="llama.cpp Build Benchmark Suite" Width="960" WindowStartupLocation="CenterScreen" xmlns="[http://schemas.microsoft.com/winfx/2006/xaml/presentation](http://schemas.microsoft.com/winfx/2006/xaml/presentation)" xmlns:x="[http://schemas.microsoft.com/winfx/2006/xaml](http://schemas.microsoft.com/winfx/2006/xaml)">
-	<Grid Margin="16">
-		<Grid.RowDefinitions>
-			<RowDefinition Height="Auto"/>
-			<RowDefinition Height="Auto"/>
-			<RowDefinition Height="*"/>
-			<RowDefinition Height="Auto"/>
-			<RowDefinition Height="180"/>
-			<RowDefinition Height="Auto"/>
-		</Grid.RowDefinitions>
+# --- Load WPF UI from XAML ---
+$xmlReader = [System.Xml.XmlReader]::Create($xamlPath)
+$Window    = [System.Windows.Markup.XamlReader]::Load($xmlReader)
+$xmlReader.Close()
 
-		<!-- Top Bar: Title and Language Selector -->
-		<DockPanel Grid.Row="0" Margin="0,0,0,12">
-			<TextBlock FontSize="18" FontWeight="Bold" Foreground="#89B4FA" Text="llama.cpp Build Benchmark Suite" VerticalAlignment="Center"/>
-			<StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-				<TextBlock Foreground="#A6ADC8" Margin="0,0,8,0" Text="Language:" VerticalAlignment="Center" x:Name="LblLanguage"/>
-				<ComboBox Height="26" SelectedIndex="0" Width="100" x:Name="CmbLanguage">
-					<ComboBoxItem Content="English" Tag="en"/>
-					<ComboBoxItem Content="Deutsch" Tag="de"/>
-				</ComboBox>
-			</StackPanel>
-		</DockPanel>
+# --- Map UI Controls ---
+$LblAppTitle           = $Window.FindName("LblAppTitle")
+$LblBenchmarkMode      = $Window.FindName("LblBenchmarkMode")
+$CmbBenchmarkMode      = $Window.FindName("CmbBenchmarkMode")
+$LblLanguage           = $Window.FindName("LblLanguage")
+$CmbLanguage           = $Window.FindName("CmbLanguage")
+$GrpSetup              = $Window.FindName("GrpSetup")
 
-		<!-- Model & Parameters -->
-		<GroupBox BorderBrush="#45475A" Foreground="#89B4FA" Grid.Row="1" Header="Model &amp; Parameters" Margin="0,0,0,12" Padding="10" x:Name="GrpModel">
-			<Grid>
-				<Grid.RowDefinitions>
-					<RowDefinition Height="Auto"/>
-					<RowDefinition Height="Auto"/>
-					<RowDefinition Height="Auto"/>
-				</Grid.RowDefinitions>
-				<Grid.ColumnDefinitions>
-					<ColumnDefinition Width="140"/>
-					<ColumnDefinition Width="*"/>
-					<ColumnDefinition Width="90"/>
-				</Grid.ColumnDefinitions>
+$LblSingleCli          = $Window.FindName("LblSingleCli")
+$TxtSingleCli          = $Window.FindName("TxtSingleCli")
+$BtnBrowseSingleCli    = $Window.FindName("BtnBrowseSingleCli")
 
-				<!-- Model Path -->
-				<TextBlock Foreground="#CDD6F4" Grid.Column="0" Grid.Row="0" Text="GGUF Model Path:" VerticalAlignment="Center" x:Name="LblModelPath"/>
-				<TextBox Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Grid.Row="0" Height="26" Margin="0,2,8,2" x:Name="TxtModelPath"/>
-				<Button Background="#45475A" BorderBrush="#585B70" Content="Browse..." Foreground="#CDD6F4" Grid.Column="2" Grid.Row="0" Height="26" x:Name="BtnBrowseModel"/>
+$LblModelPath          = $Window.FindName("LblModelPath")
+$TxtModelPath          = $Window.FindName("TxtModelPath")
+$BtnBrowseModel        = $Window.FindName("BtnBrowseModel")
 
-				<!-- Parameters -->
-				<Grid Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="1" Margin="0,8,0,0">
-					<Grid.ColumnDefinitions>
-						<ColumnDefinition Width="140"/>
-						<ColumnDefinition Width="80"/>
-						<ColumnDefinition Width="30"/>
-						<ColumnDefinition Width="120"/>
-						<ColumnDefinition Width="80"/>
-						<ColumnDefinition Width="30"/>
-						<ColumnDefinition Width="120"/>
-						<ColumnDefinition Width="80"/>
-					</Grid.ColumnDefinitions>
-					<TextBlock Foreground="#CDD6F4" Grid.Column="0" Text="Threads (-t):" VerticalAlignment="Center" x:Name="LblThreads"/>
-					<TextBox Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Height="26" HorizontalContentAlignment="Center" Text="8" x:Name="TxtThreads"/>
+$GridBaseParams        = $Window.FindName("GridBaseParams")
+$LblThreads            = $Window.FindName("LblThreads")
+$TxtThreads            = $Window.FindName("TxtThreads")
+$LblGpuLayers          = $Window.FindName("LblGpuLayers")
+$TxtGpuLayers          = $Window.FindName("TxtGpuLayers")
+$LblCtxSize            = $Window.FindName("LblCtxSize")
+$TxtCtxSize            = $Window.FindName("TxtCtxSize")
 
-					<TextBlock Foreground="#CDD6F4" Grid.Column="3" Text="GPU Layers (-ngl):" VerticalAlignment="Center" x:Name="LblGpuLayers"/>
-					<TextBox Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="4" Height="26" HorizontalContentAlignment="Center" Text="99" x:Name="TxtGpuLayers"/>
+$LblChatTemplate       = $Window.FindName("LblChatTemplate")
+$TxtChatTemplate       = $Window.FindName("TxtChatTemplate")
+$BtnBrowseTemplate     = $Window.FindName("BtnBrowseTemplate")
+$BtnBenchmarkTemplate  = $Window.FindName("BtnBenchmarkTemplate")
 
-					<TextBlock Foreground="#CDD6F4" Grid.Column="6" Text="Context Size (-c):" VerticalAlignment="Center" x:Name="LblCtxSize"/>
-					<TextBox Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="7" Height="26" HorizontalContentAlignment="Center" Text="4096" x:Name="TxtCtxSize"/>
-				</Grid>
+# Mode Panels
+$GrpBuilds             = $Window.FindName("GrpBuilds")
+$LstBuilds             = $Window.FindName("LstBuilds")
+$BtnAddBuild           = $Window.FindName("BtnAddBuild")
+$BtnRemoveBuild        = $Window.FindName("BtnRemoveBuild")
+$BtnClearBuilds        = $Window.FindName("BtnClearBuilds")
 
-				<!-- Chat Template -->
-				<TextBlock Foreground="#CDD6F4" Grid.Column="0" Grid.Row="2" Margin="0,8,0,0" Text="Chat Template:" VerticalAlignment="Center" x:Name="LblChatTemplate"/>
-				<TextBox Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Grid.Row="2" Height="26" Margin="0,8,8,0" ToolTip="Leave blank for GGUF default, enter template name (e.g., chatml) or path to .jinja file" x:Name="TxtChatTemplate"/>
-				<Button Background="#45475A" BorderBrush="#585B70" Content="Browse..." Foreground="#CDD6F4" Grid.Column="2" Grid.Row="2" Height="26" Margin="0,8,0,0" x:Name="BtnBrowseTemplate"/>
-			</Grid>
-		</GroupBox>
+$GrpModels             = $Window.FindName("GrpModels")
+$LstModels             = $Window.FindName("LstModels")
+$BtnAddModels          = $Window.FindName("BtnAddModels")
+$BtnRemoveModel        = $Window.FindName("BtnRemoveModel")
+$BtnClearModels        = $Window.FindName("BtnClearModels")
 
-		<!-- Middle: Builds and Test Scenarios -->
-		<Grid Grid.Row="2" Margin="0,0,0,12">
-			<Grid.ColumnDefinitions>
-				<ColumnDefinition Width="*"/>
-				<ColumnDefinition Width="12"/>
-				<ColumnDefinition Width="340"/>
-			</Grid.ColumnDefinitions>
+$GrpParams             = $Window.FindName("GrpParams")
+$LstParams             = $Window.FindName("LstParams")
+$TxtNewParamName       = $Window.FindName("TxtNewParamName")
+$TxtNewParamThreads    = $Window.FindName("TxtNewParamThreads")
+$TxtNewParamGpu        = $Window.FindName("TxtNewParamGpu")
+$TxtNewParamCtx        = $Window.FindName("TxtNewParamCtx")
+$BtnAddCustomParam     = $Window.FindName("BtnAddCustomParam")
+$LblQuickSweep         = $Window.FindName("LblQuickSweep")
+$CmbQuickSweep         = $Window.FindName("CmbQuickSweep")
+$BtnApplyQuickSweep    = $Window.FindName("BtnApplyQuickSweep")
+$BtnRemoveParam        = $Window.FindName("BtnRemoveParam")
+$BtnClearParams        = $Window.FindName("BtnClearParams")
 
-			<!-- Builds ListBox -->
-			<GroupBox BorderBrush="#45475A" Foreground="#89B4FA" Grid.Column="0" Header="llama.cpp Executables (llama-cli.exe)" Padding="10" x:Name="GrpBuilds">
-				<DockPanel>
-					<StackPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,8,0,0" Orientation="Horizontal">
-						<Button Background="#45475A" BorderBrush="#585B70" Content="Add Build..." Foreground="#CDD6F4" Height="28" Margin="0,0,8,0" Width="110" x:Name="BtnAddBuild"/>
-						<Button Background="#45475A" BorderBrush="#585B70" Content="Remove Selected" Foreground="#CDD6F4" Height="28" Margin="0,0,8,0" Width="130" x:Name="BtnRemoveBuild"/>
-						<Button Background="#45475A" BorderBrush="#585B70" Content="Clear All" Foreground="#CDD6F4" Height="28" Width="90" x:Name="BtnClearBuilds"/>
-					</StackPanel>
-					<ListBox Background="#181825" BorderBrush="#585B70" Foreground="#CDD6F4" SelectionMode="Extended" x:Name="LstBuilds"/>
-				</DockPanel>
-			</GroupBox>
+$GrpSuite              = $Window.FindName("GrpSuite")
+$ChkScenShort          = $Window.FindName("ChkScenShort")
+$ChkScenReason         = $Window.FindName("ChkScenReason")
+$ChkScenPrefill        = $Window.FindName("ChkScenPrefill")
+$LblScenEvalHeader     = $Window.FindName("LblScenEvalHeader")
+$LblScenPromptSpeed    = $Window.FindName("LblScenPromptSpeed")
+$LblScenGenSpeed       = $Window.FindName("LblScenGenSpeed")
+$LblScenLoadTime       = $Window.FindName("LblScenLoadTime")
 
-			<!-- Test Suite Scenarios -->
-			<GroupBox BorderBrush="#45475A" Foreground="#89B4FA" Grid.Column="2" Header="Test Suite Scenarios" Padding="10" x:Name="GrpSuite">
-				<StackPanel>
-					<CheckBox Content="Scenario 1: Short Query (Quick Q&amp;A)" Foreground="#CDD6F4" IsChecked="True" Margin="0,8,0,8" x:Name="ChkScenShort"/>
-					<CheckBox Content="Scenario 2: Code &amp; Logic (Balanced)" Foreground="#CDD6F4" IsChecked="True" Margin="0,0,0,8" x:Name="ChkScenReason"/>
-					<CheckBox Content="Scenario 3: Long Context (Prefill)" Foreground="#CDD6F4" IsChecked="True" Margin="0,0,0,8" x:Name="ChkScenPrefill"/>
-					<TextBlock FontWeight="Bold" Foreground="#A6ADC8" Margin="0,16,0,4" Text="Scenarios evaluate:"/>
-					<TextBlock Foreground="#A6ADC8" Margin="8,0,0,2" Text="• Prompt evaluation throughput (tokens/sec)"/>
-					<TextBlock Foreground="#A6ADC8" Margin="8,0,0,2" Text="• Generation throughput (tokens/sec)"/>
-					<TextBlock Foreground="#A6ADC8" Margin="8,0,0,2" Text="• Cold model load time (milliseconds)"/>
-				</StackPanel>
-			</GroupBox>
-		</Grid>
-
-		<!-- Actions and Progress -->
-		<DockPanel Grid.Row="3" Margin="0,0,0,8">
-			<Button Background="#A6E3A1" BorderThickness="0" Content="Start Benchmark" FontWeight="Bold" Foreground="#11111B" Height="32" Margin="0,0,10,0" Width="150" x:Name="BtnRun"/>
-			<Button Background="#89B4FA" BorderThickness="0" Content="Open HTML Report" FontWeight="Bold" Foreground="#11111B" Height="32" IsEnabled="False" Margin="0,0,10,0" Width="150" x:Name="BtnReport"/>
-			<ProgressBar Background="#313244" BorderBrush="#585B70" Foreground="#89B4FA" Height="32" Maximum="100" Minimum="0" Value="0" x:Name="PrgStatus"/>
-		</DockPanel>
-
-		<!-- Log Output -->
-		<GroupBox BorderBrush="#45475A" Foreground="#89B4FA" Grid.Row="4" Header="Execution Log" Padding="6" x:Name="GrpLog">
-			<TextBox Background="#11111B" BorderThickness="0" FontFamily="Consolas" FontSize="11" Foreground="#A6ADC8" HorizontalScrollBarVisibility="Auto" IsReadOnly="True" VerticalScrollBarVisibility="Auto" x:Name="TxtLog"/>
-		</GroupBox>
-
-		<!-- Status Bar -->
-		<StatusBar Background="#181825" Foreground="#A6ADC8" Grid.Row="5" Margin="0,6,0,0">
-			<StatusBarItem>
-				<TextBlock Text="Ready" x:Name="TxtStatus"/>
-			</StatusBarItem>
-		</StatusBar>
-	</Grid>
-</Window>
-'@
-
-# Read XAML into Window object
-$Reader = New-Object System.Xml.XmlNodeReader($Xaml)
-$Window = [System.Windows.Markup.XamlReader]::Load($Reader)
-
-# Map UI Controls
-$CmbLanguage       =$Window.FindName("CmbLanguage")
-$LblLanguage       =$Window.FindName("LblLanguage")
-$GrpModel          =$Window.FindName("GrpModel")
-$LblModelPath      =$Window.FindName("LblModelPath")
-$TxtModelPath      =$Window.FindName("TxtModelPath")
-$BtnBrowseModel    =$Window.FindName("BtnBrowseModel")
-$LblThreads        =$Window.FindName("LblThreads")
-$TxtThreads        =$Window.FindName("TxtThreads")
-$LblGpuLayers      =$Window.FindName("LblGpuLayers")
-$TxtGpuLayers      =$Window.FindName("TxtGpuLayers")
-$LblCtxSize        =$Window.FindName("LblCtxSize")
-$TxtCtxSize        =$Window.FindName("TxtCtxSize")
-$LblChatTemplate   =$Window.FindName("LblChatTemplate")
-$TxtChatTemplate   =$Window.FindName("TxtChatTemplate")
-$BtnBrowseTemplate =$Window.FindName("BtnBrowseTemplate")
-$GrpBuilds         =$Window.FindName("GrpBuilds")
-$LstBuilds         =$Window.FindName("LstBuilds")
-$BtnAddBuild       =$Window.FindName("BtnAddBuild")
-$BtnRemoveBuild    =$Window.FindName("BtnRemoveBuild")
-$BtnClearBuilds    =$Window.FindName("BtnClearBuilds")
-$GrpSuite          =$Window.FindName("GrpSuite")
-$ChkScenShort      =$Window.FindName("ChkScenShort")
-$ChkScenReason     =$Window.FindName("ChkScenReason")
-$ChkScenPrefill    =$Window.FindName("ChkScenPrefill")
-$BtnRun            =$Window.FindName("BtnRun")
-$BtnReport         =$Window.FindName("BtnReport")
-$PrgStatus         =$Window.FindName("PrgStatus")
-$GrpLog            =$Window.FindName("GrpLog")
-$TxtLog            =$Window.FindName("TxtLog")
-$TxtStatus         =$Window.FindName("TxtStatus")
+$BtnRun                = $Window.FindName("BtnRun")
+$BtnReport             = $Window.FindName("BtnReport")
+$PrgStatus             = $Window.FindName("PrgStatus")
+$GrpLog                = $Window.FindName("GrpLog")
+$TxtLog                = $Window.FindName("TxtLog")
+$TxtStatus             = $Window.FindName("TxtStatus")
 
 # Script-wide storage for last generated report path
 $Script:GeneratedReportPath = ""
 
-# Helper to process pending WPF UI events and keep window responsive
+# Parameter Config Objects Store for Mode 3
+$Script:ParamConfigs = [System.Collections.ArrayList]::new()
+
+# --- Helper Functions ---
 function Update-WpfEvents {
 	[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 }
 
-# Helper to append log messages safely
 function Write-LogMessage {
-	param([string]$Message)$timestamp = Get-Date -Format "HH:mm:ss"
-	$TxtLog.AppendText("[${timestamp}]${Message}`r`n")
+	param([string]$Message)
+	$timestamp = Get-Date -Format "HH:mm:ss"
+	$TxtLog.AppendText("[${timestamp}] ${Message}`r`n")
 	$TxtLog.ScrollToEnd()
 	Update-WpfEvents
 }
 
-# Apply localized strings to UI controls
-function Set-InterfaceLanguage {
-	param([string]$LangKey)$dict = $Localization[$LangKey]
-	$Window.Title              =$dict["Title"]
-	$LblLanguage.Text          =$dict["Language"]
-	$GrpModel.Header           =$dict["ModelGroup"]
-	$LblModelPath.Text         =$dict["ModelPath"]
-	$BtnBrowseModel.Content    =$dict["Browse"]
-	$LblThreads.Text           =$dict["Threads"]
-	$LblGpuLayers.Text         =$dict["GpuLayers"]
-	$LblCtxSize.Text           =$dict["CtxSize"]
-	$LblChatTemplate.Text      =$dict["ChatTemplate"]
-	$BtnBrowseTemplate.Content =$dict["Browse"]
-	$GrpBuilds.Header          =$dict["BuildsGroup"]
-	$BtnAddBuild.Content       =$dict["AddBuild"]
-	$BtnRemoveBuild.Content    =$dict["RemoveBuild"]
-	$BtnClearBuilds.Content    =$dict["ClearBuilds"]
-	$GrpSuite.Header           =$dict["SuiteGroup"]
-	$ChkScenShort.Content      =$dict["ScenShort"]
-	$ChkScenReason.Content     =$dict["ScenReason"]
-	$ChkScenPrefill.Content    =$dict["ScenPrefill"]
-	$BtnRun.Content            =$dict["RunBtn"]
-	$BtnReport.Content         =$dict["ReportBtn"]
-	$GrpLog.Header             =$dict["LogHeader"]
-	$TxtStatus.Text            =$dict["StatusReady"]
+# --- Dynamic Mode Switching ---
+function Update-ModeVisibility {
+	$selectedTag = "builds"
+	if ($CmbBenchmarkMode.SelectedItem) {
+		$selectedTag = [string]$CmbBenchmarkMode.SelectedItem.Tag
+	}
+
+	switch ($selectedTag) {
+		"builds" {
+			# Compare Builds: 1 Model, Base Params, N Builds
+			$LblSingleCli.Visibility       = [System.Windows.Visibility]::Collapsed
+			$TxtSingleCli.Visibility       = [System.Windows.Visibility]::Collapsed
+			$BtnBrowseSingleCli.Visibility = [System.Windows.Visibility]::Collapsed
+
+			$LblModelPath.Visibility       = [System.Windows.Visibility]::Visible
+			$TxtModelPath.Visibility       = [System.Windows.Visibility]::Visible
+			$BtnBrowseModel.Visibility     = [System.Windows.Visibility]::Visible
+
+			$GridBaseParams.Visibility     = [System.Windows.Visibility]::Visible
+
+			$GrpBuilds.Visibility          = [System.Windows.Visibility]::Visible
+			$GrpModels.Visibility          = [System.Windows.Visibility]::Collapsed
+			$GrpParams.Visibility          = [System.Windows.Visibility]::Collapsed
+		}
+		"models" {
+			# Compare Models: 1 Build, Base Params, N Models
+			$LblSingleCli.Visibility       = [System.Windows.Visibility]::Visible
+			$TxtSingleCli.Visibility       = [System.Windows.Visibility]::Visible
+			$BtnBrowseSingleCli.Visibility = [System.Windows.Visibility]::Visible
+
+			$LblModelPath.Visibility       = [System.Windows.Visibility]::Collapsed
+			$TxtModelPath.Visibility       = [System.Windows.Visibility]::Collapsed
+			$BtnBrowseModel.Visibility     = [System.Windows.Visibility]::Collapsed
+
+			$GridBaseParams.Visibility     = [System.Windows.Visibility]::Visible
+
+			$GrpBuilds.Visibility          = [System.Windows.Visibility]::Collapsed
+			$GrpModels.Visibility          = [System.Windows.Visibility]::Visible
+			$GrpParams.Visibility          = [System.Windows.Visibility]::Collapsed
+		}
+		"params" {
+			# Parameter Sweep: 1 Build, 1 Model, N Param Configs
+			$LblSingleCli.Visibility       = [System.Windows.Visibility]::Visible
+			$TxtSingleCli.Visibility       = [System.Windows.Visibility]::Visible
+			$BtnBrowseSingleCli.Visibility = [System.Windows.Visibility]::Visible
+
+			$LblModelPath.Visibility       = [System.Windows.Visibility]::Visible
+			$TxtModelPath.Visibility       = [System.Windows.Visibility]::Visible
+			$BtnBrowseModel.Visibility     = [System.Windows.Visibility]::Visible
+
+			$GridBaseParams.Visibility     = [System.Windows.Visibility]::Collapsed
+
+			$GrpBuilds.Visibility          = [System.Windows.Visibility]::Collapsed
+			$GrpModels.Visibility          = [System.Windows.Visibility]::Collapsed
+			$GrpParams.Visibility          = [System.Windows.Visibility]::Visible
+		}
+	}
 }
 
-# Language switcher event
+$CmbBenchmarkMode.Add_SelectionChanged({
+	Update-ModeVisibility
+})
+
+# --- Interface Language System ---
+function Set-InterfaceLanguage {
+	param([string]$LangKey)
+	if (-not $global:Localization.ContainsKey($LangKey)) { return }
+	$global:CurrentLang = $LangKey
+	$dict = $global:Localization[$LangKey]
+
+	$Window.Title              = $dict["Title"]
+	if ($LblAppTitle)        { $LblAppTitle.Text = $dict["Title"] }
+	$LblBenchmarkMode.Text     = $dict["BenchmarkMode"]
+	$LblLanguage.Text          = $dict["Language"]
+	$GrpSetup.Header           = $dict["SetupGroup"]
+	$LblSingleCli.Text         = $dict["SingleCliPath"]
+	$LblModelPath.Text         = $dict["ModelPath"]
+	$BtnBrowseModel.Content    = $dict["Browse"]
+	$BtnBrowseSingleCli.Content= $dict["Browse"]
+	$LblThreads.Text           = $dict["Threads"]
+	$LblGpuLayers.Text         = $dict["GpuLayers"]
+	$LblCtxSize.Text           = $dict["CtxSize"]
+	$LblChatTemplate.Text      = $dict["ChatTemplate"]
+	$BtnBrowseTemplate.Content = $dict["Browse"]
+	if ($BtnBenchmarkTemplate){ $BtnBenchmarkTemplate.Content = $dict["UseBenchmarkJinja"] }
+
+	# Mode items text
+	if ($CmbBenchmarkMode.Items.Count -ge 3) {
+		$CmbBenchmarkMode.Items[0].Content = $dict["ModeBuilds"]
+		$CmbBenchmarkMode.Items[1].Content = $dict["ModeModels"]
+		$CmbBenchmarkMode.Items[2].Content = $dict["ModeParams"]
+	}
+
+	# Mode Panels
+	$GrpBuilds.Header          = $dict["BuildsGroup"]
+	$BtnAddBuild.Content       = $dict["AddBuild"]
+	$BtnRemoveBuild.Content    = $dict["RemoveBuild"]
+	$BtnClearBuilds.Content    = $dict["ClearBuilds"]
+
+	$GrpModels.Header          = $dict["ModelsGroup"]
+	$BtnAddModels.Content      = $dict["AddModels"]
+	$BtnRemoveModel.Content    = $dict["RemoveModel"]
+	$BtnClearModels.Content    = $dict["ClearModels"]
+
+	$GrpParams.Header          = $dict["ParamsGroup"]
+	$BtnAddCustomParam.Content = $dict["AddParam"]
+	$LblQuickSweep.Text        = $dict["QuickSweep"]
+	$BtnApplyQuickSweep.Content= $dict["AddSweep"]
+	if ($CmbQuickSweep.Items.Count -ge 3) {
+		$CmbQuickSweep.Items[0].Content = $dict["SweepThreads"]
+		$CmbQuickSweep.Items[1].Content = $dict["SweepGpu"]
+		$CmbQuickSweep.Items[2].Content = $dict["SweepContext"]
+	}
+	$BtnRemoveParam.Content    = $dict["RemoveParam"]
+	$BtnClearParams.Content    = $dict["ClearParams"]
+
+	# Scenarios
+	$GrpSuite.Header           = $dict["SuiteGroup"]
+	$ChkScenShort.Content      = $dict["ScenShort"]
+	$ChkScenReason.Content     = $dict["ScenReason"]
+	$ChkScenPrefill.Content    = $dict["ScenPrefill"]
+	if ($LblScenEvalHeader)    { $LblScenEvalHeader.Text = $dict["ScenariosEvaluate"] }
+	if ($LblScenPromptSpeed)   { $LblScenPromptSpeed.Text = "• " + $dict["ScenPromptSpeed"] }
+	if ($LblScenGenSpeed)      { $LblScenGenSpeed.Text = "• " + $dict["ScenGenSpeed"] }
+	if ($LblScenLoadTime)      { $LblScenLoadTime.Text = "• " + $dict["ScenLoadTime"] }
+
+	$BtnRun.Content            = $dict["RunBtn"]
+	$BtnReport.Content         = $dict["ReportBtn"]
+	$GrpLog.Header             = $dict["LogHeader"]
+	$TxtStatus.Text            = $dict["StatusReady"]
+}
+
+# Populate Language ComboBox
+$CmbLanguage.Items.Clear()
+foreach ($code in ($global:Localization.Keys | Sort-Object)) {
+	$cbi = New-Object System.Windows.Controls.ComboBoxItem
+	$cbi.Tag = $code
+	$cbi.Content = if ($code -eq "de") { "Deutsch" } elseif ($code -eq "en") { "English" } else { $code.ToUpper() }
+	[void]$CmbLanguage.Items.Add($cbi)
+	if ($code -eq $global:CurrentLang) {
+		$CmbLanguage.SelectedItem = $cbi
+	}
+}
+
 $CmbLanguage.Add_SelectionChanged({
-	$selectedItem =$CmbLanguage.SelectedItem
-	if ($null -ne$selectedItem) {
-		$selectedTag = [string]$selectedItem.Tag
-		Set-InterfaceLanguage -LangKey "${selectedTag}"
+	$item = $CmbLanguage.SelectedItem
+	if ($null -ne $item) {
+		Set-InterfaceLanguage -LangKey ([string]$item.Tag)
 	}
 })
 
-# Model file browser dialog
-$BtnBrowseModel.Add_Click({$dlg = New-Object System.Windows.Forms.OpenFileDialog
-	$dlg.Title = "Select GGUF Model File"
+# --- UI Event Handlers ---
+$BtnBrowseSingleCli.Add_Click({
+	$dlg = New-Object System.Windows.Forms.OpenFileDialog
+	$dlg.Title = Get-LocalizedText -Key "DialogSelectBuildTitle"
+	$dlg.Filter = "Executables (*.exe)|*.exe|All Files (*.*)|*.*"
+	if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+		$TxtSingleCli.Text = $dlg.FileName
+	}
+})
+
+$BtnBrowseModel.Add_Click({
+	$dlg = New-Object System.Windows.Forms.OpenFileDialog
+	$dlg.Title = Get-LocalizedText -Key "DialogSelectModelTitle"
 	$dlg.Filter = "GGUF Model Files (*.gguf)|*.gguf|All Files (*.*)|*.*"
 	if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-		$TxtModelPath.Text =$dlg.FileName
+		$TxtModelPath.Text = $dlg.FileName
 	}
 })
 
-# Chat Template file browser dialog
-$BtnBrowseTemplate.Add_Click({$dlg = New-Object System.Windows.Forms.OpenFileDialog
-	$dlg.Title = "Select Jinja Chat Template File"
+$BtnBrowseTemplate.Add_Click({
+	$dlg = New-Object System.Windows.Forms.OpenFileDialog
+	$dlg.Title = Get-LocalizedText -Key "DialogSelectTemplateTitle"
 	$dlg.Filter = "Jinja Template Files (*.jinja;*.jinja2)|*.jinja;*.jinja2|All Files (*.*)|*.*"
 	if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-		$TxtChatTemplate.Text =$dlg.FileName
+		$TxtChatTemplate.Text = $dlg.FileName
 	}
 })
 
-# Add Build executable dialog
-$BtnAddBuild.Add_Click({$dlg = New-Object System.Windows.Forms.OpenFileDialog
-	$dlg.Title = "Select llama-cli.exe Executable"
+$BtnBenchmarkTemplate.Add_Click({
+	if (Test-Path -Path $jinjaPath) {
+		$TxtChatTemplate.Text = $jinjaPath
+		Write-LogMessage "Loaded bundled benchmark chat template: $jinjaPath"
+	}
+})
+
+# Builds List Events
+$BtnAddBuild.Add_Click({
+	$dlg = New-Object System.Windows.Forms.OpenFileDialog
+	$dlg.Title = Get-LocalizedText -Key "DialogSelectBuildTitle"
 	$dlg.Filter = "Executables (*.exe)|*.exe|All Files (*.*)|*.*"
-	$dlg.Multiselect =$true
+	$dlg.Multiselect = $true
 	if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-		foreach ($file in$dlg.FileNames) {
-			if (-not $LstBuilds.Items.Contains($file)) {$null = $LstBuilds.Items.Add($file)
+		foreach ($file in $dlg.FileNames) {
+			if (-not $LstBuilds.Items.Contains($file)) {
+				[void]$LstBuilds.Items.Add($file)
 			}
 		}
 	}
 })
 
-# Remove selected Build
 $BtnRemoveBuild.Add_Click({
 	$selected = @($LstBuilds.SelectedItems)
-	foreach ($item in$selected) {
+	foreach ($item in $selected) {
 		$LstBuilds.Items.Remove($item)
 	}
 })
 
-# Clear all Builds
-$BtnClearBuilds.Add_Click({$LstBuilds.Items.Clear()
+$BtnClearBuilds.Add_Click({
+	$LstBuilds.Items.Clear()
 })
 
-# Ensure Chart.js is downloaded locally for offline reporting
+# Models List Events
+$BtnAddModels.Add_Click({
+	$dlg = New-Object System.Windows.Forms.OpenFileDialog
+	$dlg.Title = Get-LocalizedText -Key "DialogSelectModelTitle"
+	$dlg.Filter = "GGUF Model Files (*.gguf)|*.gguf|All Files (*.*)|*.*"
+	$dlg.Multiselect = $true
+	if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+		foreach ($file in $dlg.FileNames) {
+			if (-not $LstModels.Items.Contains($file)) {
+				[void]$LstModels.Items.Add($file)
+			}
+		}
+	}
+})
+
+$BtnRemoveModel.Add_Click({
+	$selected = @($LstModels.SelectedItems)
+	foreach ($item in $selected) {
+		$LstModels.Items.Remove($item)
+	}
+})
+
+$BtnClearModels.Add_Click({
+	$LstModels.Items.Clear()
+})
+
+# Parameter Sweep Events
+function Add-ParamConfigItem {
+	param([string]$Name, [int]$Threads, [int]$Gpu, [int]$Ctx)
+	$cfgObj = [PSCustomObject]@{
+		Name      = $Name
+		Threads   = $Threads
+		GpuLayers = $Gpu
+		CtxSize   = $Ctx
+		DisplayText = "${Name}  (Threads: ${Threads} | GPU: ${Gpu} | Context: ${Ctx})"
+	}
+	[void]$Script:ParamConfigs.Add($cfgObj)
+	[void]$LstParams.Items.Add($cfgObj.DisplayText)
+}
+
+$BtnAddCustomParam.Add_Click({
+	$name = $TxtNewParamName.Text.Trim()
+	$threads = 8
+	[int]::TryParse($TxtNewParamThreads.Text, [ref]$threads) | Out-Null
+	$gpu = 99
+	[int]::TryParse($TxtNewParamGpu.Text, [ref]$gpu) | Out-Null
+	$ctx = 4096
+	[int]::TryParse($TxtNewParamCtx.Text, [ref]$ctx) | Out-Null
+
+	if ([string]::IsNullOrWhiteSpace($name)) {
+		$name = "Config-${threads}T-${gpu}NGL"
+	}
+
+	Add-ParamConfigItem -Name $name -Threads $threads -Gpu $gpu -Ctx $ctx
+	$TxtNewParamName.Text = ""
+})
+
+$BtnApplyQuickSweep.Add_Click({
+	$sweepType = if ($CmbQuickSweep.SelectedItem) { [string]$CmbQuickSweep.SelectedItem.Tag } else { "threads" }
+
+	switch ($sweepType) {
+		"threads" {
+			Add-ParamConfigItem -Name "Threads-02T" -Threads 2  -Gpu 99 -Ctx 4096
+			Add-ParamConfigItem -Name "Threads-04T" -Threads 4  -Gpu 99 -Ctx 4096
+			Add-ParamConfigItem -Name "Threads-08T" -Threads 8  -Gpu 99 -Ctx 4096
+			Add-ParamConfigItem -Name "Threads-12T" -Threads 12 -Gpu 99 -Ctx 4096
+			Add-ParamConfigItem -Name "Threads-16T" -Threads 16 -Gpu 99 -Ctx 4096
+		}
+		"gpu" {
+			Add-ParamConfigItem -Name "GPU-00 (Pure CPU)"      -Threads 8 -Gpu 0  -Ctx 4096
+			Add-ParamConfigItem -Name "GPU-16 (Partial 16ngl)" -Threads 8 -Gpu 16 -Ctx 4096
+			Add-ParamConfigItem -Name "GPU-33 (Partial 33ngl)" -Threads 8 -Gpu 33 -Ctx 4096
+			Add-ParamConfigItem -Name "GPU-99 (Full Offload)"  -Threads 8 -Gpu 99 -Ctx 4096
+		}
+		"context" {
+			Add-ParamConfigItem -Name "Context-1024" -Threads 8 -Gpu 99 -Ctx 1024
+			Add-ParamConfigItem -Name "Context-2048" -Threads 8 -Gpu 99 -Ctx 2048
+			Add-ParamConfigItem -Name "Context-4096" -Threads 8 -Gpu 99 -Ctx 4096
+			Add-ParamConfigItem -Name "Context-8192" -Threads 8 -Gpu 99 -Ctx 8192
+		}
+	}
+})
+
+$BtnRemoveParam.Add_Click({
+	$indices = @($LstParams.SelectedIndices | Sort-Object -Descending)
+	foreach ($idx in $indices) {
+		if ($idx -ge 0 -and $idx -lt $Script:ParamConfigs.Count) {
+			$Script:ParamConfigs.RemoveAt($idx)
+			$LstParams.Items.RemoveAt($idx)
+		}
+	}
+})
+
+$BtnClearParams.Add_Click({
+	$Script:ParamConfigs.Clear()
+	$LstParams.Items.Clear()
+})
+
+# Initial State
+Set-InterfaceLanguage -LangKey $global:CurrentLang
+Update-ModeVisibility
+
+# --- Offline Assets & Reporting ---
 function Ensure-ChartJsLocal {
 	param([string]$DestinationDir)
-	$assetsDir = Join-Path -Path "${DestinationDir}" -ChildPath "assets"
-	if (-not (Test-Path -Path "${assetsDir}")) {
-		$null = New-Item -ItemType Directory -Path "${assetsDir}" -Force
+	$assetsDir = Join-Path -Path $DestinationDir -ChildPath "assets"
+	if (-not (Test-Path -Path $assetsDir)) {
+		[void](New-Item -ItemType Directory -Path $assetsDir -Force)
 	}
-	$targetFile = Join-Path -Path "${assetsDir}" -ChildPath "chart.umd.min.js"
-	if (-not (Test-Path -Path "${targetFile}")) {
-		Write-LogMessage "Downloading chart.umd.min.js for offline HTML reporting..."
-		$downloadUrl = "[https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js](https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js)"
+	$targetFile = Join-Path -Path $assetsDir -ChildPath "chart.umd.min.js"
+	if (-not (Test-Path -Path $targetFile)) {
+		Write-LogMessage (Get-LocalizedText -Key "GeneratingReport")
+		$downloadUrl = "https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js"
 		try {
 			[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-			Invoke-WebRequest -Uri "${downloadUrl}" -OutFile "${targetFile}" -UseBasicParsing
+			Invoke-WebRequest -Uri $downloadUrl -OutFile $targetFile -UseBasicParsing
 			Write-LogMessage "Chart.js downloaded successfully."
 		}
 		catch {
-			$errMsg =$_.Exception.Message
-			Write-LogMessage "Warning: Failed to download Chart.js (${errMsg}). Visual charts may require internet connectivity."
+			$errMsg = $_.Exception.Message
+			Write-LogMessage "Warning: Failed to download Chart.js ($errMsg). Visual charts may require internet connectivity."
 		}
 	}
 	return $targetFile
 }
 
-# Generate offline HTML report with Chart.js
 function New-HtmlBenchmarkReport {
 	param(
 		[string]$OutputDir,
-		[string]$ModelPath,
-		[array]$BuildsList,
+		[string]$ModeTitle,
+		[string]$PrimaryMeta,
+		[string]$TargetColumnHeader,
+		[array]$TargetNames,
 		[array]$ActiveScenarios,
 		[array]$BenchmarkResults
 	)
 
-	$null = Ensure-ChartJsLocal -DestinationDir "${OutputDir}"
+	[void](Ensure-ChartJsLocal -DestinationDir $OutputDir)
+
+	if (-not (Test-Path -Path $templatePath)) {
+		Write-LogMessage "Error: Report template not found at $templatePath"
+		return ""
+	}
+
 	$reportTimestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-	$reportFileName = "llama_benchmark_report_${reportTimestamp}.html"
-	$reportFilePath = Join-Path -Path "${OutputDir}" -ChildPath "${reportFileName}"
+	$reportFileName  = "llama_benchmark_report_${reportTimestamp}.html"
+	$reportFilePath  = Join-Path -Path $OutputDir -ChildPath $reportFileName
 
-	# Prepare labels and datasets for Chart.js
-	$buildNames = @()
-	foreach ($b in$BuildsList) {
-		$parentDir = Split-Path -Path (Split-Path -Path "${b}" -Parent) -Leaf
-		$fileName = Split-Path -Path "${b}" -Leaf
-		$buildNames += "${parentDir}/${fileName}"
-	}
-
+	# Scenario labels
 	$scenarioNames = @()
-	foreach ($scen in$ActiveScenarios) {
-		$scenarioNames +=$scen["Name"]
+	foreach ($scen in $ActiveScenarios) {
+		$scenarioNames += $scen["Name"]
 	}
-
-	# Build data structures for charts
 	$chartJsLabels = ($scenarioNames | ForEach-Object { "'$($_)'" }) -join ", "
 
-	# Colors palette for builds
+	# Catppuccin color palette
 	$palette = @("#89B4FA", "#A6E3A1", "#F9E2AF", "#F38BA8", "#CBA6F7", "#FAB387", "#94E2D5")
 
-	# Generation Speed Datasets
-	$genDatasets = @()
-	$promptDatasets = @()$colorIndex = 0
+	$genDatasets    = @()
+	$promptDatasets = @()
+	$colorIndex     = 0
 
-	for ($bIdx = 0; $bIdx -lt$BuildsList.Count; $bIdx++) {$currentBuild = $BuildsList[$bIdx]
-		$buildLabel =$buildNames[$bIdx]$currentColor = $palette[$colorIndex % $palette.Count]$colorIndex++
+	for ($tIdx = 0; $tIdx -lt $TargetNames.Count; $tIdx++) {
+		$targetName   = $TargetNames[$tIdx]
+		$currentColor = $palette[$colorIndex % $palette.Count]
+		$colorIndex++
 
-		$genSpeeds = @()$promptSpeeds = @()
+		$genSpeeds    = @()
+		$promptSpeeds = @()
 
-		foreach ($scen in$ActiveScenarios) {
-			$scenId =$scen["Id"]
-			$entry =$BenchmarkResults | Where-Object { $_.Build -eq "${currentBuild}" -and $_.ScenarioId -eq "${scenId}" }
-			if ($null -ne$entry) {
-				$genSpeeds += [string]$entry.EvalSpeed
+		foreach ($scen in $ActiveScenarios) {
+			$scenId = $scen["Id"]
+			$entry  = $BenchmarkResults | Where-Object { $_.TargetName -eq $targetName -and $_.ScenarioId -eq $scenId }
+			if ($null -ne $entry) {
+				$genSpeeds    += [string]$entry.EvalSpeed
 				$promptSpeeds += [string]$entry.PromptSpeed
 			} else {
-				$genSpeeds += "0"
+				$genSpeeds    += "0"
 				$promptSpeeds += "0"
 			}
 		}
 
-		$genDataStr =$genSpeeds -join ", "
-		$promptDataStr =$promptSpeeds -join ", "
+		$genDataStr    = $genSpeeds -join ", "
+		$promptDataStr = $promptSpeeds -join ", "
 
-		$genDatasets += "{ label: '${buildLabel}', data: [${genDataStr}], backgroundColor: '${currentColor}' }"
-		$promptDatasets += "{ label: '${buildLabel}', data: [${promptDataStr}], backgroundColor: '${currentColor}' }"
+		$genDatasets    += "{ label: '${targetName}', data: [${genDataStr}], backgroundColor: '${currentColor}' }"
+		$promptDatasets += "{ label: '${targetName}', data: [${promptDataStr}], backgroundColor: '${currentColor}' }"
 	}
 
-	$genDatasetJs =$genDatasets -join ",`r`n"
-	$promptDatasetJs =$promptDatasets -join ",`r`n"
+	$genDatasetJs    = $genDatasets -join ",`r`n"
+	$promptDatasetJs = $promptDatasets -join ",`r`n"
 
 	# Build Load Time Datasets
-	$loadLabels = ($buildNames | ForEach-Object { "'$($_)'" }) -join ", "
+	$loadLabels = ($TargetNames | ForEach-Object { "'$($_)'" }) -join ", "
 	$loadValues = @()
-	for ($bIdx = 0; $bIdx -lt$BuildsList.Count; $bIdx++) {$currentBuild = $BuildsList[$bIdx]
-		$buildEntries =$BenchmarkResults | Where-Object { $_.Build -eq "${currentBuild}" }
-		$avgLoad = 0.0
-		if ($buildEntries.Count -gt 0) {
-			$sum = ($buildEntries | Measure-Object -Property LoadTime -Average).Average
+	for ($tIdx = 0; $tIdx -lt $TargetNames.Count; $tIdx++) {
+		$targetName = $TargetNames[$tIdx]
+		$entries    = $BenchmarkResults | Where-Object { $_.TargetName -eq $targetName }
+		$avgLoad    = 0.0
+		if ($entries.Count -gt 0) {
+			$sum     = ($entries | Measure-Object -Property LoadTime -Average).Average
 			$avgLoad = [Math]::Round($sum, 2)
 		}
 		$loadValues += [string]$avgLoad
 	}
-	$loadValuesJs =$loadValues -join ", "
+	$loadValuesJs = $loadValues -join ", "
 
 	# Build HTML Table Rows
 	$tableRowsHtml = ""
-	foreach ($row in $BenchmarkResults) {$bShort = Split-Path -Path $row.Build -Leaf$bDir = Split-Path -Path (Split-Path -Path $row.Build -Parent) -Leaf$displayBuild = "${bDir}/${bShort}"
-		$sName =$row.ScenarioName
-		$lTime =$row.LoadTime
-		$pTokens =$row.PromptTokens
-		$pSpeed =$row.PromptSpeed
-		$eTokens =$row.EvalTokens
-		$eSpeed =$row.EvalSpeed
+	foreach ($row in $BenchmarkResults) {
+		$tDisplay = $row.TargetName
+		$sName    = $row.ScenarioName
+		$lTime    = $row.LoadTime
+		$pTokens  = $row.PromptTokens
+		$pSpeed   = $row.PromptSpeed
+		$eTokens  = $row.EvalTokens
+		$eSpeed   = $row.EvalSpeed
 
-		$tableRowsHtml += "<tr><td>${displayBuild}</td><td>${sName}</td><td>${pTokens}</td><td><strong>${pSpeed}</strong></td><td>${eTokens}</td><td><strong>${eSpeed}</strong></td><td>${lTime}</td></tr>"
+		$tableRowsHtml += "<tr><td><strong>${tDisplay}</strong></td><td>${sName}</td><td>${pTokens}</td><td><strong>${pSpeed}</strong></td><td>${eTokens}</td><td><strong>${eSpeed}</strong></td><td>${lTime}</td></tr>`r`n"
 	}
 
-	$modelFileName = Split-Path -Path "${ModelPath}" -Leaf
 	$reportDateStr = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
-	$htmlTemplate = @"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>llama.cpp Benchmark Report</title>
-	<script src="assets/chart.umd.min.js"></script>
-	<style>
-		:root {
-			--bg: #1e1e2e;
-			--surface: #252538;
-			--card: #181825;
-			--border: #313244;
-			--text: #cdd6f4;
-			--subtext: #a6adc8;
-			--accent: #89b4fa;
-			--success: #a6e3a1;
-		}
-		body {
-			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-			background-color: var(--bg);
-			color: var(--text);
-			margin: 0;
-			padding: 24px;
-		}
-		.container {
-			max-width: 1200px;
-			margin: 0 auto;
-		}
-		header {
-			border-bottom: 2px solid var(--border);
-			padding-bottom: 16px;
-			margin-bottom: 24px;
-		}
-		h1 {
-			margin: 0 0 8px 0;
-			color: var(--accent);
-		}
-		.meta {
-			color: var(--subtext);
-			font-size: 14px;
-		}
-		.chart-grid {
-			display: grid;
-			grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-			gap: 20px;
-			margin-bottom: 30px;
-		}
-		.card {
-			background-color: var(--surface);
-			border: 1px solid var(--border);
-			border-radius: 8px;
-			padding: 16px;
-			box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-		}
-		.card h2 {
-			margin-top: 0;
-			font-size: 16px;
-			color: var(--accent);
-			border-bottom: 1px solid var(--border);
-			padding-bottom: 8px;
-		}
-		table {
-			width: 100%;
-			border-collapse: collapse;
-			margin-top: 10px;
-			font-size: 13px;
-		}
-		th, td {
-			padding: 10px 12px;
-			text-align: left;
-			border-bottom: 1px solid var(--border);
-		}
-		th {
-			background-color: var(--card);
-			color: var(--accent);
-		}
-		tr:hover {
-			background-color: rgba(137, 180, 250, 0.05);
-		}
-		footer {
-			margin-top: 40px;
-			text-align: center;
-			font-size: 12px;
-			color: var(--subtext);
-		}
-	</style>
-</head>
-<body>
-	<div class="container">
-		<header>
-			<h1>llama.cpp Realworld Benchmark Report</h1>
-			<div class="meta">
-				<span><strong>Model:</strong> ${modelFileName}</span> |
-				<span><strong>Execution Date:</strong> ${reportDateStr}</span> |
-				<span><strong>Author:</strong> Adromir</span>
-			</div>
-		</header>
+	# Substitute values into template
+	$renderedHtml = Get-Content -Path $templatePath -Raw -Encoding UTF8
+	$renderedHtml = $renderedHtml.Replace("{{COMPARISON_MODE}}", $ModeTitle)
+	$renderedHtml = $renderedHtml.Replace("{{PRIMARY_META}}", $PrimaryMeta)
+	$renderedHtml = $renderedHtml.Replace("{{TARGET_COLUMN_HEADER}}", $TargetColumnHeader)
+	$renderedHtml = $renderedHtml.Replace("{{EXECUTION_DATE}}", $reportDateStr)
+	$renderedHtml = $renderedHtml.Replace("{{AUTHOR}}", "Adromir")
+	$renderedHtml = $renderedHtml.Replace("{{CHART_LABELS}}", $chartJsLabels)
+	$renderedHtml = $renderedHtml.Replace("{{GEN_DATASETS}}", $genDatasetJs)
+	$renderedHtml = $renderedHtml.Replace("{{PROMPT_DATASETS}}", $promptDatasetJs)
+	$renderedHtml = $renderedHtml.Replace("{{LOAD_LABELS}}", $loadLabels)
+	$renderedHtml = $renderedHtml.Replace("{{LOAD_VALUES}}", $loadValuesJs)
+	$renderedHtml = $renderedHtml.Replace("{{TABLE_ROWS}}", $tableRowsHtml)
 
-		<div class="chart-grid">
-			<div class="card">
-				<h2>Generation Speed (Tokens/s - Higher is Better)</h2>
-				<canvas id="chartGen"></canvas>
-			</div>
-			<div class="card">
-				<h2>Prompt Processing Speed (Tokens/s - Higher is Better)</h2>
-				<canvas id="chartPrompt"></canvas>
-			</div>
-		</div>
-
-		<div class="card" style="margin-bottom: 30px;">
-			<h2>Cold Model Load Time (ms - Lower is Better)</h2>
-			<canvas id="chartLoad" style="max-height: 250px;"></canvas>
-		</div>
-
-		<div class="card">
-			<h2>Detailed Benchmark Results</h2>
-			<table>
-				<thead>
-					<tr>
-						<th>Build Executable</th>
-						<th>Scenario</th>
-						<th>Prompt Tokens</th>
-						<th>Prompt Speed (t/s)</th>
-						<th>Eval Tokens</th>
-						<th>Generation Speed (t/s)</th>
-						<th>Load Time (ms)</th>
-					</tr>
-				</thead>
-				<tbody>
-					${tableRowsHtml}
-				</tbody>
-			</table>
-		</div>
-
-		<footer>
-			Generated by llama.cpp Benchmark Suite &bull; Author: Adromir ([https://github.com/adromir](https://github.com/adromir))
-		</footer>
-	</div>
-
-	<script>
-		const defaultChartOptions = {
-			responsive: true,
-			plugins: {
-				legend: { labels: { color: '#cdd6f4' } }
-			},
-			scales: {
-				x: { ticks: { color: '#a6adc8' }, grid: { color: '#313244' } },
-				y: { ticks: { color: '#a6adc8' }, grid: { color: '#313244' } }
-			}
-		};
-
-		// Generation Chart
-		new Chart(document.getElementById('chartGen'), {
-			type: 'bar',
-			data: {
-				labels: [${chartJsLabels}],
-				datasets: [
-					${genDatasetJs}
-				]
-			},
-			options: defaultChartOptions
-		});
-
-		// Prompt Processing Chart
-		new Chart(document.getElementById('chartPrompt'), {
-			type: 'bar',
-			data: {
-				labels: [${chartJsLabels}],
-				datasets: [
-					${promptDatasetJs}
-				]
-			},
-			options: defaultChartOptions
-		});
-
-		// Load Time Chart
-		new Chart(document.getElementById('chartLoad'), {
-			type: 'bar',
-			data: {
-				labels: [${loadLabels}],
-				datasets: [{
-					label: 'Load Time (ms)',
-					data: [${loadValuesJs}],
-					backgroundColor: '#F38BA8'
-				}]
-			},
-			options: defaultChartOptions
-		});
-	</script>
-</body>
-</html>
-"@
-
-	[System.IO.File]::WriteAllText("${reportFilePath}", $htmlTemplate, [System.Text.Encoding]::UTF8)
+	[System.IO.File]::WriteAllText($reportFilePath, $renderedHtml, [System.Text.Encoding]::UTF8)
 	return $reportFilePath
 }
 
-# Execute benchmark process and parse stderr / stdout timings
+# --- Core Benchmarking Engine ---
 function Invoke-LlamaCliBenchmark {
 	param(
 		[string]$CliPath,
@@ -678,13 +658,13 @@ function Invoke-LlamaCliBenchmark {
 		[int]$GpuLayers,
 		[int]$CtxSize,
 		[string]$ChatTemplate,
-		[hashtable]$Scenario
+		[hashtable]$Scenario,
+		[string]$TargetIdentifier
 	)
 
-	$promptText = $Scenario["Prompt"]
+	$promptText   = $Scenario["Prompt"]
 	$predictCount = $Scenario["TokensToPredict"]
 
-	# Build CLI argument string
 	$argList = @(
 		"-m", "`"${ModelPath}`"",
 		"-t", "${Threads}",
@@ -695,9 +675,8 @@ function Invoke-LlamaCliBenchmark {
 		"--show-timings"
 	)
 
-	# Handle chat template if provided
-	if (-not [string]::IsNullOrWhiteSpace("${ChatTemplate}")) {
-		if (Test-Path -Path "${ChatTemplate}") {
+	if (-not [string]::IsNullOrWhiteSpace($ChatTemplate)) {
+		if (Test-Path -Path $ChatTemplate) {
 			$argList += @("--chat-template-file", "`"${ChatTemplate}`"")
 		} else {
 			$argList += @("--chat-template", "`"${ChatTemplate}`"")
@@ -705,38 +684,36 @@ function Invoke-LlamaCliBenchmark {
 	}
 
 	$psi = New-Object System.Diagnostics.ProcessStartInfo
-	$psi.FileName = "${CliPath}"
-	$psi.Arguments = ($argList -join " ")
-	$psi.UseShellExecute = $false
+	$psi.FileName               = $CliPath
+	$psi.Arguments              = ($argList -join " ")
+	$psi.UseShellExecute        = $false
 	$psi.RedirectStandardOutput = $true
-	$psi.RedirectStandardError = $true
-	$psi.CreateNoWindow = $true
+	$psi.RedirectStandardError  = $true
+	$psi.CreateNoWindow         = $true
 
 	$proc = New-Object System.Diagnostics.Process
 	$proc.StartInfo = $psi
 
-	$null = $proc.Start()
+	[void]$proc.Start()
 	$stdout = $proc.StandardOutput.ReadToEnd()
 	$stderr = $proc.StandardError.ReadToEnd()
 	$proc.WaitForExit()
 
 	$fullOutput = "${stdout}`r`n${stderr}"
 
-	# Parse Metrics using robust regex patterns
-	$loadTime = 0.0
+	# Parse Metrics using robust regex matching
+	$loadTime       = 0.0
 	$promptEvalTime = 0.0
-	$promptTokens = 0
-	$promptSpeed = 0.0
-	$evalTime = 0.0
-	$evalRuns = 0
-	$evalSpeed = 0.0
+	$promptTokens   = 0
+	$promptSpeed    = 0.0
+	$evalTime       = 0.0
+	$evalRuns       = 0
+	$evalSpeed      = 0.0
 
-	# Load Time
 	if ($fullOutput -match 'load time\s*=\s*([\d\.]+)\s*ms') {
 		$loadTime = [double]$Matches[1]
 	}
 
-	# Prompt Eval Time & Speed
 	if ($fullOutput -match 'prompt eval time\s*=\s*([\d\.]+)\s*ms\s*/\s*(\d+)\s*tokens.*?([\d\.]+)\s*tokens per second') {
 		$promptEvalTime = [double]$Matches[1]
 		$promptTokens   = [int]$Matches[2]
@@ -750,7 +727,6 @@ function Invoke-LlamaCliBenchmark {
 		}
 	}
 
-	# Eval Time & Speed
 	if ($fullOutput -match 'eval time\s*=\s*([\d\.]+)\s*ms\s*/\s*(\d+)\s*(?:runs|tokens).*?([\d\.]+)\s*tokens per second') {
 		$evalTime  = [double]$Matches[1]
 		$evalRuns  = [int]$Matches[2]
@@ -764,8 +740,8 @@ function Invoke-LlamaCliBenchmark {
 		}
 	}
 
-	$result = [PSCustomObject]@{
-		Build          = $CliPath
+	return [PSCustomObject]@{
+		TargetName     = $TargetIdentifier
 		ScenarioId     = $Scenario["Id"]
 		ScenarioName   = $Scenario["Name"]
 		LoadTime       = $loadTime
@@ -777,88 +753,178 @@ function Invoke-LlamaCliBenchmark {
 		EvalSpeed      = $evalSpeed
 		ExitCode       = $proc.ExitCode
 	}
-
-	return $result
 }
 
-# Main Benchmark Execution Trigger
+# --- Main Benchmark Execution Trigger ---
 $BtnRun.Add_Click({
-	$curLang = [string]($CmbLanguage.SelectedItem.Tag)
-	$dict = $Localization[$curLang]
+	$mode = if ($CmbBenchmarkMode.SelectedItem) { [string]$CmbBenchmarkMode.SelectedItem.Tag } else { "builds" }
 
-	# Validation
-	$modelPath = $TxtModelPath.Text.Trim()
-	if ([string]::IsNullOrWhiteSpace("${modelPath}") -or (-not (Test-Path -Path "${modelPath}"))) {
-		[System.Windows.MessageBox]::Show($dict["SelectModelMsg"], "Validation Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
-		return
-	}
-
-	if ($LstBuilds.Items.Count -eq 0) {
-		[System.Windows.MessageBox]::Show($dict["SelectBuildsMsg"], "Validation Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
-		return
-	}
-
-	# Determine active scenarios
+	# Scenarios Check
 	$activeScenarios = @()
 	if ($ChkScenShort.IsChecked)  { $activeScenarios += $Scenarios[0] }
 	if ($ChkScenReason.IsChecked) { $activeScenarios += $Scenarios[1] }
 	if ($ChkScenPrefill.IsChecked){ $activeScenarios += $Scenarios[2] }
 
 	if ($activeScenarios.Count -eq 0) {
-		[System.Windows.MessageBox]::Show($dict["SelectScenMsg"], "Validation Error", [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+		[System.Windows.MessageBox]::Show((Get-LocalizedText -Key "SelectScenMsg"), (Get-LocalizedText -Key "ValidationError"), [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
 		return
 	}
 
-	# Parse Parameters
-	$threads = 8
-	[int]::TryParse($TxtThreads.Text, [ref]$threads) | Out-Null
-	$gpuLayers = 99
-	[int]::TryParse($TxtGpuLayers.Text, [ref]$gpuLayers) | Out-Null
-	$ctxSize = 4096
-	[int]::TryParse($TxtCtxSize.Text, [ref]$ctxSize) | Out-Null
+	# Chat Template
 	$chatTemplate = $TxtChatTemplate.Text.Trim()
 
-	$buildList = @($LstBuilds.Items)
-	$totalSteps = $buildList.Count * $activeScenarios.Count
+	# Mode-specific parameters & validation
+	$testQueue = @() # array of test items
+	$targetDisplayNames = @()
+	$reportModeTitle = ""
+	$primaryMeta = ""
+	$colHeader = ""
+
+	switch ($mode) {
+		"builds" {
+			$modelPath = $TxtModelPath.Text.Trim()
+			if ([string]::IsNullOrWhiteSpace($modelPath) -or (-not (Test-Path -Path $modelPath))) {
+				[System.Windows.MessageBox]::Show((Get-LocalizedText -Key "SelectModelMsg"), (Get-LocalizedText -Key "ValidationError"), [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+				return
+			}
+			if ($LstBuilds.Items.Count -eq 0) {
+				[System.Windows.MessageBox]::Show((Get-LocalizedText -Key "SelectBuildsMsg"), (Get-LocalizedText -Key "ValidationError"), [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+				return
+			}
+
+			$threads = 8; [int]::TryParse($TxtThreads.Text, [ref]$threads) | Out-Null
+			$gpu = 99;     [int]::TryParse($TxtGpuLayers.Text, [ref]$gpu) | Out-Null
+			$ctx = 4096;   [int]::TryParse($TxtCtxSize.Text, [ref]$ctx) | Out-Null
+
+			$modelName = Split-Path -Path $modelPath -Leaf
+			$reportModeTitle = Get-LocalizedText -Key "ReportModeBuilds"
+			$primaryMeta = "Model: ${modelName} | Threads: ${threads} | GPU: ${gpu} | Context: ${ctx}"
+			$colHeader = Get-LocalizedText -Key "ColBuild"
+
+			foreach ($buildPath in $LstBuilds.Items) {
+				$bShort = Split-Path -Path $buildPath -Leaf
+				$bDir   = Split-Path -Path (Split-Path -Path $buildPath -Parent) -Leaf
+				$tName  = "${bDir}/${bShort}"
+				$targetDisplayNames += $tName
+
+				$testQueue += [PSCustomObject]@{
+					CliPath          = [string]$buildPath
+					ModelPath        = $modelPath
+					Threads          = $threads
+					GpuLayers        = $gpu
+					CtxSize          = $ctx
+					TargetIdentifier = $tName
+				}
+			}
+		}
+
+		"models" {
+			$cliPath = $TxtSingleCli.Text.Trim()
+			if ([string]::IsNullOrWhiteSpace($cliPath) -or (-not (Test-Path -Path $cliPath))) {
+				[System.Windows.MessageBox]::Show((Get-LocalizedText -Key "SelectCliMsg"), (Get-LocalizedText -Key "ValidationError"), [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+				return
+			}
+			if ($LstModels.Items.Count -eq 0) {
+				[System.Windows.MessageBox]::Show((Get-LocalizedText -Key "SelectModelsMsg"), (Get-LocalizedText -Key "ValidationError"), [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+				return
+			}
+
+			$threads = 8; [int]::TryParse($TxtThreads.Text, [ref]$threads) | Out-Null
+			$gpu = 99;     [int]::TryParse($TxtGpuLayers.Text, [ref]$gpu) | Out-Null
+			$ctx = 4096;   [int]::TryParse($TxtCtxSize.Text, [ref]$ctx) | Out-Null
+
+			$cliName = Split-Path -Path $cliPath -Leaf
+			$reportModeTitle = Get-LocalizedText -Key "ReportModeModels"
+			$primaryMeta = "Build: ${cliName} | Threads: ${threads} | GPU: ${gpu} | Context: ${ctx}"
+			$colHeader = Get-LocalizedText -Key "ColModel"
+
+			foreach ($modelFile in $LstModels.Items) {
+				$mName = Split-Path -Path $modelFile -Leaf
+				$targetDisplayNames += $mName
+
+				$testQueue += [PSCustomObject]@{
+					CliPath          = $cliPath
+					ModelPath        = [string]$modelFile
+					Threads          = $threads
+					GpuLayers        = $gpu
+					CtxSize          = $ctx
+					TargetIdentifier = $mName
+				}
+			}
+		}
+
+		"params" {
+			$cliPath = $TxtSingleCli.Text.Trim()
+			if ([string]::IsNullOrWhiteSpace($cliPath) -or (-not (Test-Path -Path $cliPath))) {
+				[System.Windows.MessageBox]::Show((Get-LocalizedText -Key "SelectCliMsg"), (Get-LocalizedText -Key "ValidationError"), [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+				return
+			}
+			$modelPath = $TxtModelPath.Text.Trim()
+			if ([string]::IsNullOrWhiteSpace($modelPath) -or (-not (Test-Path -Path $modelPath))) {
+				[System.Windows.MessageBox]::Show((Get-LocalizedText -Key "SelectModelMsg"), (Get-LocalizedText -Key "ValidationError"), [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+				return
+			}
+			if ($Script:ParamConfigs.Count -eq 0) {
+				[System.Windows.MessageBox]::Show((Get-LocalizedText -Key "SelectParamsMsg"), (Get-LocalizedText -Key "ValidationError"), [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+				return
+			}
+
+			$cliName   = Split-Path -Path $cliPath -Leaf
+			$modelName = Split-Path -Path $modelPath -Leaf
+			$reportModeTitle = Get-LocalizedText -Key "ReportModeParams"
+			$primaryMeta = "Build: ${cliName} | Model: ${modelName}"
+			$colHeader = Get-LocalizedText -Key "ColParam"
+
+			foreach ($cfg in $Script:ParamConfigs) {
+				$targetDisplayNames += $cfg.Name
+				$testQueue += [PSCustomObject]@{
+					CliPath          = $cliPath
+					ModelPath        = $modelPath
+					Threads          = $cfg.Threads
+					GpuLayers        = $cfg.GpuLayers
+					CtxSize          = $cfg.CtxSize
+					TargetIdentifier = $cfg.Name
+				}
+			}
+		}
+	}
+
+	$totalSteps  = $testQueue.Count * $activeScenarios.Count
 	$currentStep = 0
 
-	# Disable UI controls during benchmark
-	$BtnRun.IsEnabled = $false
+	# Lock UI during execution
+	$BtnRun.IsEnabled    = $false
 	$BtnReport.IsEnabled = $false
-	$PrgStatus.Value = 0
+	$PrgStatus.Value     = 0
 
-	Write-LogMessage "Starting benchmark suite across ${totalSteps} test runs..."
+	Write-LogMessage (Get-LocalizedText -Key "StartingBenchmark" -FormatArgs @($totalSteps))
 
 	$benchmarkResults = @()
 
 	try {
-		foreach ($buildPath in $buildList) {
-			$buildShort = Split-Path -Path "${buildPath}" -Leaf
-			$buildDir = Split-Path -Path (Split-Path -Path "${buildPath}" -Parent) -Leaf
-			$displayBuild = "${buildDir}/${buildShort}"
+		foreach ($testItem in $testQueue) {
+			$targetName = $testItem.TargetIdentifier
 
 			foreach ($scenario in $activeScenarios) {
 				$scenName = $scenario["Name"]
-				$statusPrefix = $dict["StatusRunning"]
-				$TxtStatus.Text = "${statusPrefix}${displayBuild} (${scenName})"
-				Write-LogMessage "Executing: ${displayBuild} -> ${scenName}..."
+				$statusPrefix = Get-LocalizedText -Key "StatusRunning"
+				$TxtStatus.Text = "${statusPrefix}${targetName} (${scenName})"
+				Write-LogMessage (Get-LocalizedText -Key "ExecutingScenario" -FormatArgs @($targetName, $scenName))
 				Update-WpfEvents
 
 				$res = Invoke-LlamaCliBenchmark `
-					-CliPath "${buildPath}" `
-					-ModelPath "${modelPath}" `
-					-Threads $threads `
-					-GpuLayers $gpuLayers `
-					-CtxSize $ctxSize `
-					-ChatTemplate "${chatTemplate}" `
-					-Scenario $scenario
+					-CliPath $testItem.CliPath `
+					-ModelPath $testItem.ModelPath `
+					-Threads $testItem.Threads `
+					-GpuLayers $testItem.GpuLayers `
+					-CtxSize $testItem.CtxSize `
+					-ChatTemplate $chatTemplate `
+					-Scenario $scenario `
+					-TargetIdentifier $targetName
 
 				$benchmarkResults += $res
 
-				$pSpeed = $res.PromptSpeed
-				$eSpeed = $res.EvalSpeed
-				$lTime = $res.LoadTime
-				Write-LogMessage "Result: Prompt Speed = ${pSpeed} t/s | Eval Speed = ${eSpeed} t/s | Load = ${lTime} ms"
+				Write-LogMessage (Get-LocalizedText -Key "ResultMetrics" -FormatArgs @($res.PromptSpeed, $res.EvalSpeed, $res.LoadTime))
 
 				$currentStep++
 				$PrgStatus.Value = [Math]::Round(($currentStep / $totalSteps) * 100)
@@ -867,42 +933,41 @@ $BtnRun.Add_Click({
 		}
 
 		# Generate Report
-		$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-		if ([string]::IsNullOrWhiteSpace("${scriptDir}")) {
-			$scriptDir = [System.Environment]::CurrentDirectory
-		}
-
-		Write-LogMessage "Generating offline HTML report with Chart.js..."
+		Write-LogMessage (Get-LocalizedText -Key "GeneratingReport")
 		$reportFile = New-HtmlBenchmarkReport `
-			-OutputDir "${scriptDir}" `
-			-ModelPath "${modelPath}" `
-			-BuildsList $buildList `
+			-OutputDir $scriptDir `
+			-ModeTitle $reportModeTitle `
+			-PrimaryMeta $primaryMeta `
+			-TargetColumnHeader $colHeader `
+			-TargetNames $targetDisplayNames `
 			-ActiveScenarios $activeScenarios `
 			-BenchmarkResults $benchmarkResults
 
 		$Script:GeneratedReportPath = $reportFile
-		Write-LogMessage "Report successfully generated: ${reportFile}"
+		if (-not [string]::IsNullOrWhiteSpace($reportFile)) {
+			Write-LogMessage (Get-LocalizedText -Key "ReportGenerated" -FormatArgs @($reportFile))
+			$BtnReport.IsEnabled = $true
+		}
 
-		$TxtStatus.Text = $dict["StatusDone"]
-		$BtnReport.IsEnabled = $true
+		$TxtStatus.Text = Get-LocalizedText -Key "StatusDone"
 	}
 	catch {
-		$err = $_.Exception.Message
-		Write-LogMessage "Error during benchmark execution: ${err}"
-		$TxtStatus.Text = "Error encountered."
+		$errMsg = $_.Exception.Message
+		Write-LogMessage (Get-LocalizedText -Key "ExecutionError" -FormatArgs @($errMsg))
+		$TxtStatus.Text = Get-LocalizedText -Key "StatusError"
 	}
 	finally {
 		$BtnRun.IsEnabled = $true
 	}
 })
 
-# Open HTML Report Button
+# --- Open Report Button ---
 $BtnReport.Add_Click({
 	$rep = $Script:GeneratedReportPath
-	if (-not [string]::IsNullOrWhiteSpace("${rep}") -and (Test-Path -Path "${rep}")) {
-		Start-Process -FilePath "${rep}"
+	if (-not [string]::IsNullOrWhiteSpace($rep) -and (Test-Path -Path $rep)) {
+		Start-Process -FilePath $rep
 	}
 })
 
-# Show the GUI Window
+# --- Show GUI Window ---
 $null = $Window.ShowDialog()
