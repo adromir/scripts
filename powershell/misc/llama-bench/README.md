@@ -22,10 +22,19 @@ Manually running `llama-cli.exe` commands with identical prompts, context length
 
 ### Key Advantages
 
-* 🎯 **3 Flexible Benchmark Modes:**
-  * **Compare Builds:** Benchmark multiple `llama-cli.exe` builds (CUDA vs. Vulkan vs. CPU AVX2) using 1 model and identical parameters.
+* 🎯 **4 Flexible Benchmark Modes:**
+  * **Compare Builds:** Benchmark multiple `llama-cli.exe` builds (CUDA vs. ROCm vs. Vulkan vs. CPU AVX2) using 1 model and identical parameters.
   * **Compare Models:** Benchmark 1 executable across multiple `.gguf` models (e.g. comparing quants Q4_K_M vs. Q5_K_M vs. Q8_0, or different model architectures).
   * **Parameter Sweep:** Benchmark 1 executable and 1 model across parameter scaling configurations (threads, GPU offload layers, context sizes, KV-cache quantizations, Flash Attention, batching).
+  * **Custom Matrix Benchmark (Freie Konfigurationen):** Fully asymmetric comparison allowing each candidate to use a completely different build, different model, and unique parameter flags (e.g. testing Build A with DFlash 2 against Build B without DFlash 2).
+* 💾 **Precise VRAM Utilization & Buffer Footprint Tracking:**
+  * Extracts exact memory allocation metrics directly from the inference engine: Tensor Model Buffer, KV Cache allocation, Compute buffer, and Total VRAM footprint (MiB).
+  * Features a dedicated VRAM Memory Allocation comparison bar chart in the HTML report.
+  * Displays a detailed VRAM memory column in the results table broken down by component.
+* 🔬 **Granular Single-Run Metrics & Variance Analysis:**
+  * Tracks every individual execution run (Runs 1..N) to compute arithmetic averages, minimums, maximums, and sample standard deviations ($\pm \sigma$).
+  * Interactive accordion disclosure (`▶ Show N Runs`) in the HTML report revealing complete per-run prompt speeds, generation speeds, load times, and VRAM buffers.
+  * Global 1-click **Expand All Runs / Collapse All Runs** button for instant multi-run audits.
 * 🎛️ **Dedicated Visual Profile Manager GUI Modal:**
   * Interactive WPF Dialog (`ProfileDialog.xaml`) to manage, inspect, edit, and duplicate profiles.
   * Full graphical controls for all inference parameters: thread count, GPU layers, context length, batch/ubatch, KV-cache quantization (`f16`, `q8_0`, `q4_0`, `turbo2`, `turbo3`, `turbo4`), memory flags (`--mlock`, `--mmap`), and speculative decoders (`--dflash`, `--gdn-replay`).
@@ -62,7 +71,7 @@ Manually running `llama-cli.exe` commands with identical prompts, context length
   * Automatically calculates robust arithmetic averages for prompt evaluation speed, token generation throughput, and model load times, eliminating single-run variance.
 * 📜 **Bundled Benchmark Jinja Template:** Includes a clean, zero-overhead `templates/benchmark.jinja` template to standardize chat formatting and eliminate conversational bloat during benchmarking.
 * 🔥 **Model Warmup Phase:** Automatically primes GPU VRAM allocations, shader pipelines, and system page caches with a lightweight warm-up pass before executing measured runs. Can be toggled on/off with a single click.
-* 📊 **Interactive Offline HTML Reports:** Generates standalone, responsive HTML reports featuring bundled [Chart.js](https://www.chartjs.org/) bar charts and granular timing breakdown tables. Auto-adapts charts and column headers based on active benchmark mode.
+* 📊 **Interactive Offline HTML Reports:** Generates standalone, responsive HTML reports featuring bundled [Chart.js](https://www.chartjs.org/) bar charts (Generation Speed, Prompt Speed, VRAM Allocation, Load Time) and granular timing breakdown tables. Auto-adapts charts and column headers based on active benchmark mode.
 * 🧪 **Standardized Real-World Workload Scenarios:**
   * **Scenario 1: Quick Q&A (96 Tokens Out):** First-token responsiveness and low-latency throughput under short prompt conditions.
   * **Scenario 2: Code & Architecture (256 Tokens Out):** Multi-step code synthesis and balanced inference throughput.
@@ -72,6 +81,7 @@ Manually running `llama-cli.exe` commands with identical prompts, context length
   * **Cold Model Load Time** (ms average: SSD read, VRAM allocation, and kernel pipeline initialization)
   * **Prompt Processing Speed** (tokens/second average)
   * **Token Generation Speed** (tokens/second average)
+  * **VRAM Memory Footprint** (MiB: Model, KV-Cache, Compute Buffer, Total)
 * 🎨 **Modern Dark WPF GUI:** Built with an eye-friendly Catppuccin-inspired dark theme, real-time progress bar, responsive background dispatching, and live execution logging.
 * 🌐 **Live Multilingual UI:** Seamless instant switching between **English** and **German** interface text.
 

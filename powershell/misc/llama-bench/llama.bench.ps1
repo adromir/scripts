@@ -208,6 +208,23 @@ $BtnApplyQuickSweep    = $Window.FindName("BtnApplyQuickSweep")
 $BtnRemoveParam        = $Window.FindName("BtnRemoveParam")
 $BtnClearParams        = $Window.FindName("BtnClearParams")
 
+# Custom Matrix Controls for Mode 4
+$GrpCustom                   = $Window.FindName("GrpCustom")
+$LblCustomCandidateName      = $Window.FindName("LblCustomCandidateName")
+$TxtCustomCandidateName      = $Window.FindName("TxtCustomCandidateName")
+$BtnAddCustomCandidate       = $Window.FindName("BtnAddCustomCandidate")
+$LblCustomCli                = $Window.FindName("LblCustomCli")
+$TxtCustomCli                = $Window.FindName("TxtCustomCli")
+$BtnBrowseCustomCli          = $Window.FindName("BtnBrowseCustomCli")
+$LblCustomModel              = $Window.FindName("LblCustomModel")
+$TxtCustomModel              = $Window.FindName("TxtCustomModel")
+$BtnBrowseCustomModel        = $Window.FindName("BtnBrowseCustomModel")
+$LblCustomHint               = $Window.FindName("LblCustomHint")
+$LstCustomCandidates         = $Window.FindName("LstCustomCandidates")
+$BtnDuplicateCustomCandidate = $Window.FindName("BtnDuplicateCustomCandidate")
+$BtnRemoveCustomCandidate    = $Window.FindName("BtnRemoveCustomCandidate")
+$BtnClearCustomCandidates    = $Window.FindName("BtnClearCustomCandidates")
+
 $GrpSuite              = $Window.FindName("GrpSuite")
 $ChkWarmup             = $Window.FindName("ChkWarmup")
 $ChkScenShort          = $Window.FindName("ChkScenShort")
@@ -232,6 +249,9 @@ $Script:GeneratedReportPath = ""
 # Parameter Config Objects Store for Mode 3
 $Script:ParamConfigs = [System.Collections.ArrayList]::new()
 
+# Custom Candidates Store for Mode 4
+$Script:CustomCandidates = [System.Collections.ArrayList]::new()
+
 # --- Helper Functions ---
 function Update-WpfEvents {
 	[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
@@ -243,6 +263,17 @@ function Write-LogMessage {
 	$TxtLog.AppendText("[${timestamp}] ${Message}`r`n")
 	$TxtLog.ScrollToEnd()
 	Update-WpfEvents
+}
+
+function Get-StandardDeviation {
+	param([double[]]$Values)
+	if (-not $Values -or $Values.Count -le 1) { return 0.0 }
+	$avg = ($Values | Measure-Object -Average).Average
+	$sumSq = 0.0
+	foreach ($v in $Values) {
+		$sumSq += [Math]::Pow(($v - $avg), 2)
+	}
+	return [Math]::Round([Math]::Sqrt($sumSq / ($Values.Count - 1)), 2)
 }
 
 # --- Hardware & GPU Discovery ---
@@ -840,6 +871,7 @@ function Update-ModeVisibility {
 			$GrpBuilds.Visibility          = [System.Windows.Visibility]::Visible
 			$GrpModels.Visibility          = [System.Windows.Visibility]::Collapsed
 			$GrpParams.Visibility          = [System.Windows.Visibility]::Collapsed
+			if ($GrpCustom) { $GrpCustom.Visibility = [System.Windows.Visibility]::Collapsed }
 		}
 		"models" {
 			# Compare Models: 1 Build, Base Params, N Models
@@ -856,6 +888,7 @@ function Update-ModeVisibility {
 			$GrpBuilds.Visibility          = [System.Windows.Visibility]::Collapsed
 			$GrpModels.Visibility          = [System.Windows.Visibility]::Visible
 			$GrpParams.Visibility          = [System.Windows.Visibility]::Collapsed
+			if ($GrpCustom) { $GrpCustom.Visibility = [System.Windows.Visibility]::Collapsed }
 		}
 		"params" {
 			# Parameter Sweep: 1 Build, 1 Model, N Param Configs
@@ -872,6 +905,40 @@ function Update-ModeVisibility {
 			$GrpBuilds.Visibility          = [System.Windows.Visibility]::Collapsed
 			$GrpModels.Visibility          = [System.Windows.Visibility]::Collapsed
 			$GrpParams.Visibility          = [System.Windows.Visibility]::Visible
+			if ($GrpCustom) { $GrpCustom.Visibility = [System.Windows.Visibility]::Collapsed }
+		}
+		"custom" {
+			# Custom Matrix Benchmark: N Independent Candidates (Different builds, models, & settings)
+			$LblSingleCli.Visibility       = [System.Windows.Visibility]::Collapsed
+			$TxtSingleCli.Visibility       = [System.Windows.Visibility]::Collapsed
+			$BtnBrowseSingleCli.Visibility = [System.Windows.Visibility]::Collapsed
+
+			$LblModelPath.Visibility       = [System.Windows.Visibility]::Collapsed
+			$TxtModelPath.Visibility       = [System.Windows.Visibility]::Collapsed
+			$BtnBrowseModel.Visibility     = [System.Windows.Visibility]::Collapsed
+
+			$GridBaseParams.Visibility     = [System.Windows.Visibility]::Visible
+
+			$GrpBuilds.Visibility          = [System.Windows.Visibility]::Collapsed
+			$GrpModels.Visibility          = [System.Windows.Visibility]::Collapsed
+			$GrpParams.Visibility          = [System.Windows.Visibility]::Collapsed
+			if ($GrpCustom) { $GrpCustom.Visibility = [System.Windows.Visibility]::Visible }
+
+			# Auto-fill candidate paths if empty
+			if ($TxtCustomCli -and [string]::IsNullOrWhiteSpace($TxtCustomCli.Text)) {
+				if ($TxtSingleCli -and (-not [string]::IsNullOrWhiteSpace($TxtSingleCli.Text))) {
+					$TxtCustomCli.Text = $TxtSingleCli.Text.Trim()
+				} elseif ($LstBuilds -and $LstBuilds.Items.Count -gt 0) {
+					$TxtCustomCli.Text = [string]$LstBuilds.Items[0]
+				}
+			}
+			if ($TxtCustomModel -and [string]::IsNullOrWhiteSpace($TxtCustomModel.Text)) {
+				if ($TxtModelPath -and (-not [string]::IsNullOrWhiteSpace($TxtModelPath.Text))) {
+					$TxtCustomModel.Text = $TxtModelPath.Text.Trim()
+				} elseif ($LstModels -and $LstModels.Items.Count -gt 0) {
+					$TxtCustomModel.Text = [string]$LstModels.Items[0]
+				}
+			}
 		}
 	}
 }
@@ -937,6 +1004,9 @@ function Set-InterfaceLanguage {
 		$CmbBenchmarkMode.Items[1].Content = $dict["ModeModels"]
 		$CmbBenchmarkMode.Items[2].Content = $dict["ModeParams"]
 	}
+	if ($CmbBenchmarkMode.Items.Count -ge 4) {
+		$CmbBenchmarkMode.Items[3].Content = $dict["ModeCustom"]
+	}
 
 	# Mode Panels
 	$GrpBuilds.Header          = $dict["BuildsGroup"]
@@ -963,6 +1033,19 @@ function Set-InterfaceLanguage {
 	}
 	$BtnRemoveParam.Content    = $dict["RemoveParam"]
 	$BtnClearParams.Content    = $dict["ClearParams"]
+
+	# Mode 4 Custom Matrix Panel
+	if ($GrpCustom)                    { $GrpCustom.Header = $dict["CustomGroup"] }
+	if ($LblCustomCandidateName)       { $LblCustomCandidateName.Text = $dict["CustomCandidateName"] }
+	if ($BtnAddCustomCandidate)        { $BtnAddCustomCandidate.Content = $dict["AddCandidate"] }
+	if ($LblCustomCli)                 { $LblCustomCli.Text = $dict["CustomCli"] }
+	if ($BtnBrowseCustomCli)           { $BtnBrowseCustomCli.Content = $dict["Browse"] }
+	if ($LblCustomModel)               { $LblCustomModel.Text = $dict["CustomModel"] }
+	if ($BtnBrowseCustomModel)         { $BtnBrowseCustomModel.Content = $dict["Browse"] }
+	if ($LblCustomHint)                { $LblCustomHint.Text = $dict["CustomHint"] }
+	if ($BtnDuplicateCustomCandidate)  { $BtnDuplicateCustomCandidate.Content = $dict["DuplicateCandidate"] }
+	if ($BtnRemoveCustomCandidate)     { $BtnRemoveCustomCandidate.Content = $dict["RemoveCandidate"] }
+	if ($BtnClearCustomCandidates)     { $BtnClearCustomCandidates.Content = $dict["ClearCandidates"] }
 
 	# Scenarios
 	$GrpSuite.Header           = $dict["SuiteGroup"]
@@ -1287,6 +1370,165 @@ $BtnClearParams.Add_Click({
 	$LstParams.Items.Clear()
 })
 
+# --- Mode 4: Custom Matrix Candidates Management ---
+function Update-CustomCandidatesList {
+	$LstCustomCandidates.Items.Clear()
+	for ($i = 0; $i -lt $Script:CustomCandidates.Count; $i++) {
+		$c = $Script:CustomCandidates[$i]
+		$cliLeaf   = Split-Path -Path $c.CliPath -Leaf
+		$cliParent = Split-Path -Path (Split-Path -Path $c.CliPath -Parent) -Leaf
+		$modelLeaf = Split-Path -Path $c.ModelPath -Leaf
+
+		$lbi = New-Object System.Windows.Controls.ListBoxItem
+		$lbi.Tag = $i
+		$lbi.DataContext = $c
+
+		$sp = New-Object System.Windows.Controls.StackPanel
+		$sp.Margin = New-Object System.Windows.Thickness(2, 4, 2, 4)
+
+		$tbHeader = New-Object System.Windows.Controls.TextBlock
+		$tbHeader.Text = "$($i + 1). $($c.Name)"
+		$tbHeader.FontWeight = [System.Windows.FontWeights]::Bold
+		$tbHeader.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#89B4FA")
+		[void]$sp.Children.Add($tbHeader)
+
+		$tbDetail1 = New-Object System.Windows.Controls.TextBlock
+		$tbDetail1.Text = "CLI: ${cliParent}/${cliLeaf} | Model: ${modelLeaf}"
+		$tbDetail1.FontSize = 11
+		$tbDetail1.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#CDD6F4")
+		[void]$sp.Children.Add($tbDetail1)
+
+		$optSummary = "t:$($c.Threads) ngl:$($c.GpuLayers) c:$($c.CtxSize) b:$($c.BatchSize)/$($c.UbatchSize) fa:$($c.FlashAttn)"
+		if ($c.Dflash)    { $optSummary += " [dflash2]" }
+		if ($c.GdnReplay) { $optSummary += " [gdn-replay]" }
+		if ($c.CacheTypeK -ne "f16" -or $c.CacheTypeV -ne "f16") { $optSummary += " kv:$($c.CacheTypeK)/$($c.CacheTypeV)" }
+
+		$tbDetail2 = New-Object System.Windows.Controls.TextBlock
+		$tbDetail2.Text = $optSummary
+		$tbDetail2.FontSize = 11
+		$tbDetail2.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString("#A6ADC8")
+		[void]$sp.Children.Add($tbDetail2)
+
+		$lbi.Content = $sp
+		[void]$LstCustomCandidates.Items.Add($lbi)
+	}
+}
+
+$BtnBrowseCustomCli.Add_Click({
+	$dlg = New-Object System.Windows.Forms.OpenFileDialog
+	$dlg.Title = Get-LocalizedText -Key "DialogSelectBuildTitle"
+	$dlg.Filter = "Executables (*.exe)|*.exe|All Files (*.*)|*.*"
+	if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+		$TxtCustomCli.Text = $dlg.FileName
+	}
+})
+
+$BtnBrowseCustomModel.Add_Click({
+	$dlg = New-Object System.Windows.Forms.OpenFileDialog
+	$dlg.Title = Get-LocalizedText -Key "DialogSelectModelTitle"
+	$dlg.Filter = "GGUF Model Files (*.gguf)|*.gguf|All Files (*.*)|*.*"
+	if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+		$TxtCustomModel.Text = $dlg.FileName
+	}
+})
+
+$BtnAddCustomCandidate.Add_Click({
+	$name = $TxtCustomCandidateName.Text.Trim()
+	$cli  = $TxtCustomCli.Text.Trim()
+	$mdl  = $TxtCustomModel.Text.Trim()
+
+	if ([string]::IsNullOrWhiteSpace($cli) -or (-not (Test-Path -Path $cli))) {
+		[System.Windows.MessageBox]::Show((Get-LocalizedText -Key "SelectCliMsg"), (Get-LocalizedText -Key "ValidationError"), [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+		return
+	}
+	if ([string]::IsNullOrWhiteSpace($mdl) -or (-not (Test-Path -Path $mdl))) {
+		[System.Windows.MessageBox]::Show((Get-LocalizedText -Key "SelectModelMsg"), (Get-LocalizedText -Key "ValidationError"), [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+		return
+	}
+
+	if ([string]::IsNullOrWhiteSpace($name)) {
+		$cliLeaf = Split-Path -Path $cli -Leaf
+		$name = "Candidate-$($Script:CustomCandidates.Count + 1) (${cliLeaf})"
+	}
+
+	$threads = 8;    [int]::TryParse($TxtThreads.Text, [ref]$threads) | Out-Null
+	$gpu = 99;        [int]::TryParse($TxtGpuLayers.Text, [ref]$gpu) | Out-Null
+	$ctx = 4096;      [int]::TryParse($TxtCtxSize.Text, [ref]$ctx) | Out-Null
+	$batch = 2048;    [int]::TryParse($TxtBatchSize.Text, [ref]$batch) | Out-Null
+	$ubatch = 512;    [int]::TryParse($TxtUbatchSize.Text, [ref]$ubatch) | Out-Null
+	$ctk = if ($CmbCacheTypeK.SelectedItem) { [string]$CmbCacheTypeK.SelectedItem.Tag } else { "f16" }
+	$ctv = if ($CmbCacheTypeV.SelectedItem) { [string]$CmbCacheTypeV.SelectedItem.Tag } else { "f16" }
+	$affMask = if ($TxtCpuAffinity) { $TxtCpuAffinity.Text.Trim() } else { "0xFF" }
+
+	$candidateObj = [PSCustomObject]@{
+		Name            = $name
+		CliPath         = $cli
+		ModelPath       = $mdl
+		Threads         = $threads
+		GpuLayers       = $gpu
+		CtxSize         = $ctx
+		BatchSize       = $batch
+		UbatchSize      = $ubatch
+		CacheTypeK      = $ctk
+		CacheTypeV      = $ctv
+		FlashAttn       = [bool]$ChkFlashAttn.IsChecked
+		Mlock           = [bool]$ChkMlock.IsChecked
+		Mmap            = [bool]$ChkMmap.IsChecked
+		CpuAffinity     = [bool]$ChkCpuAffinity.IsChecked
+		CpuAffinityMask = $affMask
+		Dflash          = [bool]$ChkDflash.IsChecked
+		GdnReplay       = [bool]$ChkGdnReplay.IsChecked
+	}
+
+	[void]$Script:CustomCandidates.Add($candidateObj)
+	Update-CustomCandidatesList
+	$TxtCustomCandidateName.Text = ""
+})
+
+$BtnDuplicateCustomCandidate.Add_Click({
+	$idx = $LstCustomCandidates.SelectedIndex
+	if ($idx -ge 0 -and $idx -lt $Script:CustomCandidates.Count) {
+		$src = $Script:CustomCandidates[$idx]
+		$clone = [PSCustomObject]@{
+			Name            = "$($src.Name) (Copy)"
+			CliPath         = $src.CliPath
+			ModelPath       = $src.ModelPath
+			Threads         = $src.Threads
+			GpuLayers       = $src.GpuLayers
+			CtxSize         = $src.CtxSize
+			BatchSize       = $src.BatchSize
+			UbatchSize      = $src.UbatchSize
+			CacheTypeK      = $src.CacheTypeK
+			CacheTypeV      = $src.CacheTypeV
+			FlashAttn       = $src.FlashAttn
+			Mlock           = $src.Mlock
+			Mmap            = $src.Mmap
+			CpuAffinity     = $src.CpuAffinity
+			CpuAffinityMask = $src.CpuAffinityMask
+			Dflash          = $src.Dflash
+			GdnReplay       = $src.GdnReplay
+		}
+		[void]$Script:CustomCandidates.Add($clone)
+		Update-CustomCandidatesList
+		$LstCustomCandidates.SelectedIndex = $Script:CustomCandidates.Count - 1
+	}
+})
+
+$BtnRemoveCustomCandidate.Add_Click({
+	$indices = @($LstCustomCandidates.SelectedIndices | Sort-Object -Descending)
+	foreach ($idx in $indices) {
+		if ($idx -ge 0 -and $idx -lt $Script:CustomCandidates.Count) {
+			$Script:CustomCandidates.RemoveAt($idx)
+		}
+	}
+	Update-CustomCandidatesList
+})
+
+$BtnClearCustomCandidates.Add_Click({
+	$Script:CustomCandidates.Clear()
+	Update-CustomCandidatesList
+})
+
 # Initial State
 Update-ProfilesDropdown
 if ($CmbProfiles.Items.Count -gt 0) {
@@ -1354,6 +1596,7 @@ function New-HtmlBenchmarkReport {
 
 	$genDatasets    = @()
 	$promptDatasets = @()
+	$vramDatasets   = @()
 	$colorIndex     = 0
 
 	for ($tIdx = 0; $tIdx -lt $TargetNames.Count; $tIdx++) {
@@ -1363,6 +1606,7 @@ function New-HtmlBenchmarkReport {
 
 		$genSpeeds    = @()
 		$promptSpeeds = @()
+		$vrams        = @()
 
 		foreach ($scen in $ActiveScenarios) {
 			$scenId = $scen["Id"]
@@ -1370,21 +1614,26 @@ function New-HtmlBenchmarkReport {
 			if ($null -ne $entry) {
 				$genSpeeds    += [string]$entry.EvalSpeed
 				$promptSpeeds += [string]$entry.PromptSpeed
+				$vrams        += [string]$entry.TotalVram
 			} else {
 				$genSpeeds    += "0"
 				$promptSpeeds += "0"
+				$vrams        += "0"
 			}
 		}
 
 		$genDataStr    = $genSpeeds -join ", "
 		$promptDataStr = $promptSpeeds -join ", "
+		$vramDataStr   = $vrams -join ", "
 
 		$genDatasets    += "{ label: '${targetName}', data: [${genDataStr}], backgroundColor: '${currentColor}' }"
 		$promptDatasets += "{ label: '${targetName}', data: [${promptDataStr}], backgroundColor: '${currentColor}' }"
+		$vramDatasets   += "{ label: '${targetName}', data: [${vramDataStr}], backgroundColor: '${currentColor}' }"
 	}
 
 	$genDatasetJs    = $genDatasets -join ",`r`n"
 	$promptDatasetJs = $promptDatasets -join ",`r`n"
+	$vramDatasetJs   = $vramDatasets -join ",`r`n"
 
 	# Build Load Time Datasets
 	$loadLabels = ($TargetNames | ForEach-Object { "'$($_)'" }) -join ", "
@@ -1401,18 +1650,89 @@ function New-HtmlBenchmarkReport {
 	}
 	$loadValuesJs = $loadValues -join ", "
 
-	# Build HTML Table Rows
+	# Build HTML Table Rows with Granular Runs Disclosure
 	$tableRowsHtml = ""
+	$rowIdx = 0
 	foreach ($row in $BenchmarkResults) {
+		$rowIdx++
+		$rowId    = "r${rowIdx}"
 		$tDisplay = $row.TargetName
 		$sName    = $row.ScenarioName
 		$lTime    = $row.LoadTime
 		$pTokens  = $row.PromptTokens
 		$pSpeed   = $row.PromptSpeed
+		$pStdDev  = if ($null -ne $row.PromptSpeedStdDev) { $row.PromptSpeedStdDev } else { 0.0 }
 		$eTokens  = $row.EvalTokens
 		$eSpeed   = $row.EvalSpeed
+		$eStdDev  = if ($null -ne $row.EvalSpeedStdDev) { $row.EvalSpeedStdDev } else { 0.0 }
+		$totVram  = if ($null -ne $row.TotalVram) { $row.TotalVram } else { 0.0 }
+		$modVram  = if ($null -ne $row.ModelVram) { $row.ModelVram } else { 0.0 }
+		$kvVram   = if ($null -ne $row.KvVram) { $row.KvVram } else { 0.0 }
+		$compVram = if ($null -ne $row.ComputeVram) { $row.ComputeVram } else { 0.0 }
+		$runsCnt  = if ($null -ne $row.Runs) { $row.Runs } else { 1 }
 
-		$tableRowsHtml += "<tr><td><strong>${tDisplay}</strong></td><td>${sName}</td><td>${pTokens}</td><td><strong>${pSpeed}</strong></td><td>${eTokens}</td><td><strong>${eSpeed}</strong></td><td>${lTime}</td></tr>`r`n"
+		$pSpeedDisplay = "<strong>${pSpeed}</strong>"
+		if ($runsCnt -gt 1 -and $pStdDev -gt 0) {
+			$pSpeedDisplay += " <span class='stddev'>&plusmn;${pStdDev}</span>"
+		}
+		$eSpeedDisplay = "<strong>${eSpeed}</strong>"
+		if ($runsCnt -gt 1 -and $eStdDev -gt 0) {
+			$eSpeedDisplay += " <span class='stddev'>&plusmn;${eStdDev}</span>"
+		}
+		$vramDisplay = "<strong>${totVram}</strong> <span class='stddev'>(${modVram}/${kvVram}/${compVram})</span>"
+
+		$tableRowsHtml += "<tr><td><strong>${tDisplay}</strong></td><td>${sName}</td><td>${pTokens}</td><td>${pSpeedDisplay}</td><td>${eTokens}</td><td>${eSpeedDisplay}</td><td>${vramDisplay}</td><td>${lTime}</td><td><button type='button' class='runs-btn' id='btn-runs-${rowId}' onclick=`"toggleRuns('${rowId}')`">&#9654; ${runsCnt} Runs</button></td></tr>`r`n"
+
+		# Render collapsible run subtable
+		$runSubRowsHtml = ""
+		if ($row.RunsData -and $row.RunsData.Count -gt 0) {
+			$runNum = 0
+			foreach ($rd in $row.RunsData) {
+				$runNum++
+				$rPSpeed = $rd.PromptSpeed
+				$rESpeed = $rd.EvalSpeed
+				$rLTime  = $rd.LoadTime
+				$rModV   = if ($null -ne $rd.ModelVram) { $rd.ModelVram } else { 0.0 }
+				$rKvV    = if ($null -ne $rd.KvVram) { $rd.KvVram } else { 0.0 }
+				$rCompV  = if ($null -ne $rd.ComputeVram) { $rd.ComputeVram } else { 0.0 }
+				$rTotV   = if ($null -ne $rd.TotalVram) { $rd.TotalVram } else { 0.0 }
+				$runSubRowsHtml += "<tr><td>Run #${runNum}</td><td><strong>${rPSpeed}</strong> t/s</td><td><strong>${rESpeed}</strong> t/s</td><td>${rLTime} ms</td><td>${rModV} MiB</td><td>${rKvV} MiB</td><td>${rCompV} MiB</td><td><strong>${rTotV}</strong> MiB</td></tr>`r`n"
+			}
+		} else {
+			$runSubRowsHtml = "<tr><td colspan='8'>Single run data only.</td></tr>"
+		}
+
+		$statBadge = "Avg Eval: ${eSpeed} t/s | Min: $($row.EvalSpeedMin) t/s | Max: $($row.EvalSpeedMax) t/s | StdDev &sigma;: &plusmn;${eStdDev} t/s"
+
+		$tableRowsHtml += @"
+<tr id="runs-${rowId}" class="runs-detail-row" style="display: none;">
+	<td colspan="9">
+		<div class="runs-container">
+			<div class="runs-header">
+				<strong>Individual Runs for ${tDisplay} - ${sName}</strong>
+				<span class="runs-stats-badge">${statBadge}</span>
+			</div>
+			<table class="runs-table">
+				<thead>
+					<tr>
+						<th>Run #</th>
+						<th>Prompt Speed</th>
+						<th>Generation Speed</th>
+						<th>Load Time</th>
+						<th>Model VRAM</th>
+						<th>KV Cache VRAM</th>
+						<th>Compute VRAM</th>
+						<th>Total VRAM</th>
+					</tr>
+				</thead>
+				<tbody>
+					${runSubRowsHtml}
+				</tbody>
+			</table>
+		</div>
+	</td>
+</tr>`r`n
+"@
 	}
 
 	$reportDateStr = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -1427,6 +1747,7 @@ function New-HtmlBenchmarkReport {
 	$renderedHtml = $renderedHtml.Replace("{{CHART_LABELS}}", $chartJsLabels)
 	$renderedHtml = $renderedHtml.Replace("{{GEN_DATASETS}}", $genDatasetJs)
 	$renderedHtml = $renderedHtml.Replace("{{PROMPT_DATASETS}}", $promptDatasetJs)
+	$renderedHtml = $renderedHtml.Replace("{{VRAM_DATASETS}}", $vramDatasetJs)
 	$renderedHtml = $renderedHtml.Replace("{{LOAD_LABELS}}", $loadLabels)
 	$renderedHtml = $renderedHtml.Replace("{{LOAD_VALUES}}", $loadValuesJs)
 	$renderedHtml = $renderedHtml.Replace("{{TABLE_ROWS}}", $tableRowsHtml)
@@ -1486,7 +1807,8 @@ function Invoke-LlamaCliBenchmark {
 		"-p", "`"$((($promptText -replace "`r?`n", ' ') -replace '"', '\"'))`"",
 		"--single-turn",
 		"--simple-io",
-		"--show-timings"
+		"--show-timings",
+		"--verbose"
 	)
 
 	# Batching
@@ -1586,9 +1908,11 @@ function Invoke-LlamaCliBenchmark {
 			}
 		} catch { }
 	}
-	$stdout = $proc.StandardOutput.ReadToEnd()
-	$stderr = $proc.StandardError.ReadToEnd()
+	$stdoutTask = $proc.StandardOutput.ReadToEndAsync()
+	$stderrTask = $proc.StandardError.ReadToEndAsync()
 	$proc.WaitForExit()
+	$stdout = $stdoutTask.GetAwaiter().GetResult()
+	$stderr = $stderrTask.GetAwaiter().GetResult()
 	$sw.Stop()
 	$wallClockMs = $sw.ElapsedMilliseconds
 
@@ -1681,6 +2005,48 @@ function Invoke-LlamaCliBenchmark {
 		}
 	}
 
+	# Parse VRAM buffer and memory allocations
+	$modelVram   = 0.0
+	$kvVram      = 0.0
+	$computeVram = 0.0
+	$totalVram   = 0.0
+
+	# Search for all tensor model buffer sizes and take maximum non-zero allocation
+	$modelMatches = [regex]::Matches($fullOutput, '(?i)model buffer size\s*=\s*([\d\.]+)\s*MiB')
+	foreach ($m in $modelMatches) {
+		$val = [double]$m.Groups[1].Value
+		if ($val -gt $modelVram) { $modelVram = $val }
+	}
+
+	# Search for KV cache buffer size
+	$kvMatches = [regex]::Matches($fullOutput, '(?i)KV buffer size\s*=\s*([\d\.]+)\s*MiB')
+	foreach ($m in $kvMatches) {
+		$val = [double]$m.Groups[1].Value
+		if ($val -gt $kvVram) { $kvVram = $val }
+	}
+	if ($kvVram -eq 0.0 -and $fullOutput -match '(?i)llama_kv_cache:\s*size\s*=\s*([\d\.]+)\s*MiB') {
+		$kvVram = [double]$Matches[1]
+	}
+
+	# Search for compute buffer size
+	$compMatches = [regex]::Matches($fullOutput, '(?i)compute buffer size\s*=\s*([\d\.]+)\s*MiB')
+	foreach ($m in $compMatches) {
+		$val = [double]$m.Groups[1].Value
+		if ($val -gt $computeVram) { $computeVram = $val }
+	}
+
+	# Check common_memory_breakdown_print
+	if ($fullOutput -match 'common_memory_breakdown_print:.*?\(\s*([\d\.]+)\s*=\s*([\d\.]+)\s*\+\s*([\d\.]+)\s*\+\s*([\d\.]+)\)') {
+		$totalVram = [double]$Matches[1]
+		if ($modelVram -eq 0.0)   { $modelVram = [double]$Matches[2] }
+		if ($kvVram -eq 0.0)      { $kvVram = [double]$Matches[3] }
+		if ($computeVram -eq 0.0) { $computeVram = [double]$Matches[4] }
+	}
+
+	if ($totalVram -eq 0.0) {
+		$totalVram = [Math]::Round(($modelVram + $kvVram + $computeVram), 2)
+	}
+
 	return [PSCustomObject]@{
 		TargetName     = $TargetIdentifier
 		ScenarioId     = $Scenario["Id"]
@@ -1692,6 +2058,10 @@ function Invoke-LlamaCliBenchmark {
 		EvalTime       = $evalTime
 		EvalTokens     = $evalRuns
 		EvalSpeed      = $evalSpeed
+		ModelVram      = $modelVram
+		KvVram         = $kvVram
+		ComputeVram    = $computeVram
+		TotalVram      = $totalVram
 		ExitCode       = $proc.ExitCode
 	}
 }
@@ -1929,6 +2299,41 @@ $BtnRun.Add_Click({
 				}
 			}
 		}
+
+		"custom" {
+			if ($Script:CustomCandidates.Count -eq 0) {
+				[System.Windows.MessageBox]::Show((Get-LocalizedText -Key "SelectCustomMsg"), (Get-LocalizedText -Key "ValidationError"), [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning)
+				return
+			}
+
+			$reportModeTitle = Get-LocalizedText -Key "ReportModeCustom"
+			$primaryMeta = "Mode: Custom Candidate Matrix | Candidates: $($Script:CustomCandidates.Count)"
+			$colHeader = Get-LocalizedText -Key "ColCustomCandidate"
+
+			foreach ($c in $Script:CustomCandidates) {
+				$targetDisplayNames += $c.Name
+
+				$testQueue += [PSCustomObject]@{
+					CliPath          = $c.CliPath
+					ModelPath        = $c.ModelPath
+					Threads          = $c.Threads
+					GpuLayers        = $c.GpuLayers
+					CtxSize          = $c.CtxSize
+					BatchSize        = $c.BatchSize
+					UbatchSize       = $c.UbatchSize
+					CacheTypeK       = $c.CacheTypeK
+					CacheTypeV       = $c.CacheTypeV
+					FlashAttn        = $c.FlashAttn
+					Mlock            = $c.Mlock
+					Mmap             = $c.Mmap
+					CpuAffinity      = $c.CpuAffinity
+					CpuAffinityMask  = $c.CpuAffinityMask
+					Dflash           = $c.Dflash
+					GdnReplay        = $c.GdnReplay
+					TargetIdentifier = $c.Name
+				}
+			}
+		}
 	}
 
 	# Repetitions & Hardware Device Selection
@@ -2026,44 +2431,90 @@ $BtnRun.Add_Click({
 					$runResults += $runRes
 
 					if ($repetitions -gt 1) {
-						Write-LogMessage (Get-LocalizedText -Key "SingleRunMetrics" -FormatArgs @($r, $repetitions, $runRes.PromptSpeed, $runRes.EvalSpeed))
+						$runLogMsg = (Get-LocalizedText -Key "SingleRunMetrics" -FormatArgs @($r, $repetitions, $runRes.PromptSpeed, $runRes.EvalSpeed))
+						if ($runRes.TotalVram -gt 0) {
+							$runLogMsg += " [VRAM: $($runRes.TotalVram) MiB]"
+						}
+						Write-LogMessage $runLogMsg
 					}
 					Update-WpfEvents
 				}
 
-				# Calculate averages across all runs
+				# Calculate averages and statistics across all runs
 				$avgPromptSpeed = 0.0
+				$minPromptSpeed = 0.0
+				$maxPromptSpeed = 0.0
+				$stdDevPrompt   = 0.0
 				$avgEvalSpeed   = 0.0
+				$minEvalSpeed   = 0.0
+				$maxEvalSpeed   = 0.0
+				$stdDevEval     = 0.0
 				$avgLoadTime    = 0.0
+				$avgModelVram   = 0.0
+				$avgKvVram      = 0.0
+				$avgComputeVram = 0.0
+				$avgTotalVram   = 0.0
+
 				$validRuns = @($runResults | Where-Object { $_.ExitCode -eq 0 })
 				if ($validRuns.Count -gt 0) {
-					$avgPromptSpeed = [Math]::Round(($validRuns | Measure-Object -Property PromptSpeed -Average).Average, 2)
-					$avgEvalSpeed   = [Math]::Round(($validRuns | Measure-Object -Property EvalSpeed -Average).Average, 2)
+					$pStats = $validRuns | Measure-Object -Property PromptSpeed -Average -Minimum -Maximum
+					$avgPromptSpeed = [Math]::Round($pStats.Average, 2)
+					$minPromptSpeed = [Math]::Round($pStats.Minimum, 2)
+					$maxPromptSpeed = [Math]::Round($pStats.Maximum, 2)
+					$stdDevPrompt   = Get-StandardDeviation -Values ([double[]]($validRuns | ForEach-Object { [double]$_.PromptSpeed }))
+
+					$eStats = $validRuns | Measure-Object -Property EvalSpeed -Average -Minimum -Maximum
+					$avgEvalSpeed   = [Math]::Round($eStats.Average, 2)
+					$minEvalSpeed   = [Math]::Round($eStats.Minimum, 2)
+					$maxEvalSpeed   = [Math]::Round($eStats.Maximum, 2)
+					$stdDevEval     = Get-StandardDeviation -Values ([double[]]($validRuns | ForEach-Object { [double]$_.EvalSpeed }))
+
 					$avgLoadTime    = [Math]::Round(($validRuns | Measure-Object -Property LoadTime -Average).Average, 2)
+					$avgModelVram   = [Math]::Round(($validRuns | Measure-Object -Property ModelVram -Average).Average, 2)
+					$avgKvVram      = [Math]::Round(($validRuns | Measure-Object -Property KvVram -Average).Average, 2)
+					$avgComputeVram = [Math]::Round(($validRuns | Measure-Object -Property ComputeVram -Average).Average, 2)
+					$avgTotalVram   = [Math]::Round(($validRuns | Measure-Object -Property TotalVram -Average).Average, 2)
 				}
 
 				$lastRes = $runResults[-1]
 				$res = [PSCustomObject]@{
-					TargetName     = $targetName
-					ScenarioId     = $scenario["Id"]
-					ScenarioName   = $scenario["Name"]
-					LoadTime       = $avgLoadTime
-					PromptEvalTime = $lastRes.PromptEvalTime
-					PromptTokens   = $lastRes.PromptTokens
-					PromptSpeed    = $avgPromptSpeed
-					EvalTime       = $lastRes.EvalTime
-					EvalTokens     = $lastRes.EvalTokens
-					EvalSpeed      = $avgEvalSpeed
-					ExitCode       = $lastRes.ExitCode
-					Runs           = $repetitions
+					TargetName        = $targetName
+					ScenarioId        = $scenario["Id"]
+					ScenarioName      = $scenario["Name"]
+					LoadTime          = $avgLoadTime
+					PromptEvalTime    = $lastRes.PromptEvalTime
+					PromptTokens      = $lastRes.PromptTokens
+					PromptSpeed       = $avgPromptSpeed
+					PromptSpeedMin    = $minPromptSpeed
+					PromptSpeedMax    = $maxPromptSpeed
+					PromptSpeedStdDev = $stdDevPrompt
+					EvalTime          = $lastRes.EvalTime
+					EvalTokens        = $lastRes.EvalTokens
+					EvalSpeed         = $avgEvalSpeed
+					EvalSpeedMin      = $minEvalSpeed
+					EvalSpeedMax      = $maxEvalSpeed
+					EvalSpeedStdDev   = $stdDevEval
+					ModelVram         = $avgModelVram
+					KvVram            = $avgKvVram
+					ComputeVram       = $avgComputeVram
+					TotalVram         = $avgTotalVram
+					ExitCode          = $lastRes.ExitCode
+					Runs              = $repetitions
+					RunsData          = $runResults
 				}
 
 				$benchmarkResults += $res
 
 				if ($repetitions -gt 1) {
 					Write-LogMessage (Get-LocalizedText -Key "AvgResultMetrics" -FormatArgs @($repetitions, $avgPromptSpeed, $avgEvalSpeed, $avgLoadTime))
+					if ($avgTotalVram -gt 0) {
+						Write-LogMessage "  -> VRAM Footprint: Total: ${avgTotalVram} MiB (Model: ${avgModelVram} MiB, KV: ${avgKvVram} MiB, Compute: ${avgComputeVram} MiB) | Eval StdDev: +/-${stdDevEval} t/s"
+					}
 				} else {
 					Write-LogMessage (Get-LocalizedText -Key "ResultMetrics" -FormatArgs @($avgPromptSpeed, $avgEvalSpeed, $avgLoadTime))
+					if ($avgTotalVram -gt 0) {
+						Write-LogMessage "  -> VRAM Footprint: Total: ${avgTotalVram} MiB (Model: ${avgModelVram} MiB, KV: ${avgKvVram} MiB, Compute: ${avgComputeVram} MiB)"
+					}
 				}
 
 				$currentStep++

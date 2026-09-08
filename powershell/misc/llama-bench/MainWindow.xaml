@@ -120,10 +120,11 @@
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                 <!-- Benchmark Mode Selector -->
                 <TextBlock x:Name="LblBenchmarkMode" Foreground="#A6ADC8" Margin="0,0,8,0" Text="Benchmark Mode:" VerticalAlignment="Center"/>
-                <ComboBox x:Name="CmbBenchmarkMode" Height="26" Width="180" Margin="0,0,16,0">
+                <ComboBox x:Name="CmbBenchmarkMode" Height="26" Width="210" Margin="0,0,16,0">
                     <ComboBoxItem Content="Compare Builds" Tag="builds" IsSelected="True"/>
                     <ComboBoxItem Content="Compare Models" Tag="models"/>
                     <ComboBoxItem Content="Parameter Sweep" Tag="params"/>
+                    <ComboBoxItem Content="Custom Matrix Comparison" Tag="custom"/>
                 </ComboBox>
 
                 <!-- Language Selector -->
@@ -379,6 +380,68 @@
 
                     <!-- Parameter Configs ListBox -->
                     <ListBox x:Name="LstParams" Background="#181825" BorderBrush="#585B70" Foreground="#CDD6F4" SelectionMode="Extended"/>
+                </DockPanel>
+            </GroupBox>
+
+            <!-- Mode 4: Custom Matrix Benchmark Panel -->
+            <GroupBox x:Name="GrpCustom" BorderBrush="#45475A" Foreground="#89B4FA" Grid.Column="0" Header="Configured Benchmark Candidates (Custom Matrix)" Padding="10" Visibility="Collapsed">
+                <DockPanel>
+                    <!-- Top Bar: Candidate Definition & Action -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="150"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="LblCustomCandidateName" Foreground="#CDD6F4" Text="Candidate Name:" VerticalAlignment="Center"/>
+                            <TextBox x:Name="TxtCustomCandidateName" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Height="26" Padding="4,2" ToolTip="Descriptive name for this candidate (e.g. 'Build A (Experimental + DFlash)')"/>
+                            <Button x:Name="BtnAddCustomCandidate" Style="{StaticResource ActionButtonStyle}" Grid.Column="3" Content="+ Add Candidate" Height="26" ToolTip="Adds a benchmark candidate with the specified Name, Executable, Model, and current parameters"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="80"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="LblCustomCli" Foreground="#CDD6F4" Text="llama-cli.exe:" VerticalAlignment="Center"/>
+                            <TextBox x:Name="TxtCustomCli" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Height="26" Padding="4,2"/>
+                            <Button x:Name="BtnBrowseCustomCli" Style="{StaticResource ActionButtonStyle}" Grid.Column="3" Content="Browse..." Height="26"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="80"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="LblCustomModel" Foreground="#CDD6F4" Text="GGUF Model:" VerticalAlignment="Center"/>
+                            <TextBox x:Name="TxtCustomModel" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Height="26" Padding="4,2"/>
+                            <Button x:Name="BtnBrowseCustomModel" Style="{StaticResource ActionButtonStyle}" Grid.Column="3" Content="Browse..." Height="26"/>
+                        </Grid>
+                        <TextBlock x:Name="LblCustomHint" Text="💡 Hint: Parameters and profiles configured above are captured when adding the candidate." Foreground="#6C7086" FontSize="10" Margin="110,4,0,0"/>
+                    </StackPanel>
+
+                    <!-- Bottom Action Buttons -->
+                    <StackPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,8,0,0" Orientation="Horizontal">
+                        <Button x:Name="BtnDuplicateCustomCandidate" Style="{StaticResource ActionButtonStyle}" Content="Duplicate" Height="28" Margin="0,0,8,0" Width="100"/>
+                        <Button x:Name="BtnRemoveCustomCandidate" Style="{StaticResource ActionButtonStyle}" Content="Remove Selected" Height="28" Margin="0,0,8,0" Width="130"/>
+                        <Button x:Name="BtnClearCustomCandidates" Style="{StaticResource ActionButtonStyle}" Content="Clear All" Height="28" Width="90"/>
+                    </StackPanel>
+
+                    <!-- Candidates ListBox -->
+                    <ListBox x:Name="LstCustomCandidates" Background="#181825" BorderBrush="#585B70" Foreground="#CDD6F4" SelectionMode="Extended">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="2,4">
+                                    <TextBlock Text="{Binding DisplayHeader}" FontWeight="Bold" Foreground="#89B4FA" FontSize="12"/>
+                                    <TextBlock Text="{Binding DisplayDetails}" Foreground="#A6ADC8" FontSize="10" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                 </DockPanel>
             </GroupBox>
 
