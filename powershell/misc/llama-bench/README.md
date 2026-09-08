@@ -25,21 +25,53 @@ Manually running `llama-cli.exe` commands with identical prompts, context length
 * 🎯 **3 Flexible Benchmark Modes:**
   * **Compare Builds:** Benchmark multiple `llama-cli.exe` builds (CUDA vs. Vulkan vs. CPU AVX2) using 1 model and identical parameters.
   * **Compare Models:** Benchmark 1 executable across multiple `.gguf` models (e.g. comparing quants Q4_K_M vs. Q5_K_M vs. Q8_0, or different model architectures).
-  * **Parameter Sweep:** Benchmark 1 executable and 1 model across parameter scaling configurations (threads, GPU offload layers, context sizes).
+  * **Parameter Sweep:** Benchmark 1 executable and 1 model across parameter scaling configurations (threads, GPU offload layers, context sizes, KV-cache quantizations, Flash Attention, batching).
+* 🎛️ **Dedicated Visual Profile Manager GUI Modal:**
+  * Interactive WPF Dialog (`ProfileDialog.xaml`) to manage, inspect, edit, and duplicate profiles.
+  * Full graphical controls for all inference parameters: thread count, GPU layers, context length, batch/ubatch, KV-cache quantization (`f16`, `q8_0`, `q4_0`, `turbo2`, `turbo3`, `turbo4`), memory flags (`--mlock`, `--mmap`), and speculative decoders (`--dflash`, `--gdn-replay`).
+  * 1-click **Manage Profiles...** and **Save Current as Profile...** buttons in the main window.
+* ⚡ **Universal Architecture-Agnostic Tuning Presets:**
+  * **Full GPU Offload (Max VRAM):** All layers to GPU (`-ngl 99`), Flash Attention (`-fa on`), `-b 2048 -ub 512`, `--mlock`, 8k context.
+  * **Hybrid Offload (RAM + VRAM):** Partial GPU offload (`-ngl 24`), Q8_0 KV-cache, Flash Attention, 8 threads, `--mlock`.
+  * **Ultra-Context (TurboQuant turbo2):** 2-bit TurboQuant KV-cache (`-ctk/-ctv turbo2`) for extreme 16k+ contexts in limited VRAM.
+  * **Balanced Quality (TurboQuant turbo4):** 4-bit TurboQuant KV-cache (`-ctk/-ctv turbo4`) balancing memory reduction with generation accuracy.
+  * **Speculative Decoding (DFlash + MTP):** DFlash 2 speculative decoding acceleration (`--dflash`) & MTP rollback (`--gdn-replay`).
+  * **High-Performance CPU:** Pure CPU execution (`-ngl 0`) with customizable worker thread count and optional core pinning.
+* 🧩 **Universal CPU Thread Affinity Bitmask:**
+  * Standard hexadecimal bitmask (e.g. `0xFF` for Cores 0–7, `0x0F` for Cores 0–3, `0xFFFF` for 16 cores) to pin worker threads to specific performance cores, CCDs, or NUMA nodes across any CPU vendor (Intel or AMD).
+* 🎛️ **Advanced Performance Tuning Expander:**
+  * **Batching:** Logical batch size (`-b`, default 2048) and physical micro-batch (`-ub`, default 512) to avoid VRAM allocation spikes.
+  * **KV-Cache Quantization:** Selectable data types for K and V (`f16`, `q8_0`, `q4_0`, `turbo2`, `turbo3`, `turbo4`).
+  * **Flash Attention:** Mandatory high-efficiency attention (`-fa on`) drastically cutting VRAM consumption and boosting prefill.
+  * **Memory Management:** Direct weight memory mapping (`--mmap`) and physical RAM locking (`--mlock`) to avoid Windows pagefile swapping.
+  * **CPU Thread Affinity:** Restricts worker thread affinity via custom hex bitmask without relying on vendor-specific tooling.
+  * **Speculative Decoding:** Toggle DFlash 2 (`--dflash`) and Multi-Token Prediction replay (`--gdn-replay`).
 * ⚡ **Quick Sweep Presets:** 1-click generators for standard scaling experiments:
   * **Thread Scaling:** 2, 4, 8, 12, 16 threads
   * **GPU Offload Scaling:** 0 (pure CPU), 16, 33, 99 (full offload) layers
   * **Context Scaling:** 1024, 2048, 4096, 8192 tokens
+  * **KV-Cache Scaling:** f16 vs. q8_0 vs. q4_0 vs. turbo4 vs. turbo2
+  * **Flash Attention Scaling:** Flash-Attn Off vs. On
+  * **Batch Size Scaling:** b512/ub256 vs. b2048/ub512 vs. b4096/ub1024
+* 🎮 **Universal GPU & Accelerator Selection:**
+  * Automatically detects GPU accelerators across vendors (AMD ROCm, NVIDIA CUDA, Intel SYCL, OpenCL/Vulkan) via `llama-cli.exe --list-devices` with fallback to Windows WMI.
+  * Allows selecting the exact graphics card, retaining system auto-selection, or forcing pure CPU execution (`-ngl 0`).
+  * Seamlessly applies isolated device binding (`HIP_VISIBLE_DEVICES`, `CUDA_VISIBLE_DEVICES`, or `-dev <Id>`) without crashing dual-GPU/APU systems.
+* 🔁 **Multi-Run Repetitions (Statistically Sound Averaging):**
+  * Configurable benchmark runs per scenario (default 10 runs; selectable 1, 3, 5, 10, or custom).
+  * Automatically calculates robust arithmetic averages for prompt evaluation speed, token generation throughput, and model load times, eliminating single-run variance.
 * 📜 **Bundled Benchmark Jinja Template:** Includes a clean, zero-overhead `templates/benchmark.jinja` template to standardize chat formatting and eliminate conversational bloat during benchmarking.
+* 🔥 **Model Warmup Phase:** Automatically primes GPU VRAM allocations, shader pipelines, and system page caches with a lightweight warm-up pass before executing measured runs. Can be toggled on/off with a single click.
 * 📊 **Interactive Offline HTML Reports:** Generates standalone, responsive HTML reports featuring bundled [Chart.js](https://www.chartjs.org/) bar charts and granular timing breakdown tables. Auto-adapts charts and column headers based on active benchmark mode.
-* 🧪 **Standardized Real-World Scenarios:**
-  * **Scenario 1 (Short Query):** Measures first-token responsiveness and low-latency throughput (64 output tokens).
-  * **Scenario 2 (Code & Logic):** Evaluates balanced multi-step inference throughput (128 output tokens).
-  * **Scenario 3 (Long Context Prefill):** Tests memory bandwidth and prompt ingestion speed under complex multi-paragraph context.
+* 🧪 **Standardized Real-World Workload Scenarios:**
+  * **Scenario 1: Quick Q&A (96 Tokens Out):** First-token responsiveness and low-latency throughput under short prompt conditions.
+  * **Scenario 2: Code & Architecture (256 Tokens Out):** Multi-step code synthesis and balanced inference throughput.
+  * **Scenario 3: Heavy Context Prefill (1200+ Tokens In, 64 Tokens Out):** Massive GEMM matrix multiplication stress test; forces continuous GPU compute utilization to reveal real compiler optimization differences.
+  * **Scenario 4: Sustained Generation (512 Tokens Out):** Extended autoregressive decoding stress test; benchmarks continuous VRAM memory bandwidth throughput and thermal stability.
 * 📈 **Comprehensive Metric Extraction:** Parses precise engine metrics:
-  * **Cold Model Load Time** (ms)
-  * **Prompt Processing Speed** (tokens/second)
-  * **Token Generation Speed** (tokens/second)
+  * **Cold Model Load Time** (ms average: SSD read, VRAM allocation, and kernel pipeline initialization)
+  * **Prompt Processing Speed** (tokens/second average)
+  * **Token Generation Speed** (tokens/second average)
 * 🎨 **Modern Dark WPF GUI:** Built with an eye-friendly Catppuccin-inspired dark theme, real-time progress bar, responsive background dispatching, and live execution logging.
 * 🌐 **Live Multilingual UI:** Seamless instant switching between **English** and **German** interface text.
 
@@ -54,23 +86,29 @@ Manually running `llama-cli.exe` commands with identical prompts, context length
 | [ Model & Parameters ]                                                                        |
 |  GGUF Model Path: [ C:\models\Llama-3.1-8B-Instruct.Q4_K_M.gguf          ] [ Browse... ]     |
 |  Threads (-t): [ 8 ]      GPU Layers (-ngl): [ 99 ]      Context Size (-c): [ 4096 ]          |
+|  GPU Device: [ ROCm1: AMD Radeon RX 9060 XT               v ] [ Refresh ] Runs/Test: [ 10  v ]|
 |  Chat Template: [                                                         ] [ Browse... ]     |
 +-----------------------------------------------------------------------------------------------+
 | [ llama.cpp Executables ]                     | [ Test Suite Scenarios ]                       |
-| +-------------------------------------------+ | [x] Scenario 1: Short Query (Quick Q&A)       |
-| | C:\builds\llama-cuda-12.4\llama-cli.exe   | | [x] Scenario 2: Code & Logic (Balanced)       |
-| | C:\builds\llama-vulkan\llama-cli.exe      | | [x] Scenario 3: Long Context (Prefill)        |
-| | C:\builds\llama-cpu-avx2\llama-cli.exe    | |                                               |
-| +-------------------------------------------+ | Scenarios evaluate:                           |
-| [ Add Build... ] [ Remove Selected ] [ Clear ]| • Prompt evaluation throughput (tokens/sec)   |
+| +-------------------------------------------+ | [x] Warmup Model before benchmark (1 run)     |
+| | C:\builds\llama-rocm-experimental\llama...| | ---------------------------------------------- |
+| | C:\builds\llama-rocm-vanilla\llama-cli... | | [x] Scenario 1: Quick Q&A (96 t out)           |
+| |                                           | | [x] Scenario 2: Code & Logic (256 t out)       |
+| +-------------------------------------------+ | [x] Scenario 3: Heavy Prefill (1200+ t in)     |
+| [ Add Build... ] [ Remove Selected ] [ Clear ]| [x] Scenario 4: Sustained Generation (512 t)   |
+|                                               |                                               |
+|                                               | Scenarios evaluate:                           |
+|                                               | • Prompt evaluation throughput (tokens/sec)   |
 |                                               | • Generation throughput (tokens/sec)          |
 |                                               | • Cold model load time (milliseconds)         |
 +-----------------------------------------------------------------------------------------------+
 | [ Start Benchmark ]   [ Open HTML Report ]   [========================>              ] 66%    |
 +-----------------------------------------------------------------------------------------------+
 | [ Execution Log ]                                                                             |
-| [14:20:10] Running benchmark on: llama-cuda-12.4 / Scenario 1...                              |
-| [14:20:14] Model Load: 420.5 ms | Prompt: 1150.4 t/s | Eval: 98.2 t/s                        |
+| [14:20:10] Running benchmark on: llama-rocm / Scenario 1...                                   |
+| [14:20:12]   [Run 1/10] Prompt = 178.4 t/s | Eval = 57.6 t/s                                  |
+| [14:20:14]   [Run 2/10] Prompt = 181.8 t/s | Eval = 57.3 t/s                                  |
+| [14:20:25] Average (10 runs): Prompt = 180.2 t/s | Eval = 57.5 t/s | Load = 412 ms            |
 +-----------------------------------------------------------------------------------------------+
 | Status: Benchmark completed successfully.                                                     |
 +-----------------------------------------------------------------------------------------------+
@@ -105,8 +143,12 @@ cd E:\scripts\powershell\misc\llama-bench
    - **Compare Builds:** Select 1 GGUF model and base parameters, then click **Add Build...** to add multiple `llama-cli.exe` binaries.
    - **Compare Models:** Select 1 `llama-cli.exe` binary and base parameters, then click **Add Models...** to add multiple `.gguf` files (supports multi-selection for comparing quants like Q4_K_M vs Q5_K_M vs Q8_0).
    - **Parameter Sweep:** Select 1 `llama-cli.exe` binary and 1 GGUF model. Add custom parameter configurations or select a **Quick Sweep Preset** (Threads `2, 4, 8, 12, 16`, GPU Offload `0, 16, 33, 99`, or Context `1024, 2048, 4096, 8192`) and click **+ Add Sweep**.
-2. **Chat Template (Optional):** Click **Use Benchmark Jinja** to load the bundled zero-overhead template or **Browse...** to pick a custom `.jinja` file.
-3. **Select Scenarios:** Toggle any combination of the 3 built-in scenarios (Short Query, Code & Logic, Long Context Prefill).
+2. **Select Hardware & Execution Settings:**
+   - **GPU Device:** Choose your target graphics card from the detected list (e.g. AMD ROCm, NVIDIA CUDA, Intel Arc), choose `Auto / System Default`, or select `CPU Only`. Click **Refresh** to re-detect devices at any time.
+   - **Runs per Test:** Select the repetition count (1, 3, 5, 10, or enter a custom integer). 10 runs is recommended for statistically stable averages.
+   - **Model Warmup:** Check **Warmup Model before benchmark** to prime GPU memory allocations and shader pipelines before measuring.
+3. **Chat Template (Optional):** Click **Use Benchmark Jinja** to load the bundled zero-overhead template or **Browse...** to pick a custom `.jinja` file.
+4. **Select Scenarios:** Toggle any combination of the 3 built-in scenarios (Short Query, Code & Logic, Long Context Prefill).
 
 ### 3. Run & View Results
 
@@ -123,7 +165,9 @@ The project strictly separates functional business logic, graphical layout/desig
 ```text
 powershell/misc/llama-bench/
 ├── llama.bench.ps1               # Pure functional controller & benchmark execution engine
-├── MainWindow.xaml               # Declarative WPF XAML layout, control styles & Catppuccin theme
+├── MainWindow.xaml               # Declarative WPF main XAML layout & Catppuccin theme
+├── ProfileDialog.xaml            # Dedicated Profile Manager modal WPF XAML layout
+├── profiles.json                 # Universal performance presets
 ├── lang/
 │   ├── en.json                   # English UI and status translations
 │   └── de.json                   # German UI and status translations

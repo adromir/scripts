@@ -139,7 +139,10 @@
                     <RowDefinition Height="Auto" x:Name="RowSingleCliDef"/>
                     <RowDefinition Height="Auto" x:Name="RowSingleModelDef"/>
                     <RowDefinition Height="Auto" x:Name="RowBaseParamsDef"/>
+                    <RowDefinition Height="Auto" x:Name="RowHardwareDef"/>
                     <RowDefinition Height="Auto" x:Name="RowChatTemplateDef"/>
+                    <RowDefinition Height="Auto" x:Name="RowProfilesDef"/>
+                    <RowDefinition Height="Auto" x:Name="RowAdvParamsDef"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="150"/>
@@ -180,11 +183,123 @@
                     <TextBox x:Name="TxtCtxSize" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="7" Height="26" HorizontalContentAlignment="Center" Text="4096" Padding="2"/>
                 </Grid>
 
-                <!-- Row 3: Chat Template & Template Preset (always available) -->
-                <TextBlock x:Name="LblChatTemplate" Foreground="#CDD6F4" Grid.Column="0" Grid.Row="3" Margin="0,8,0,0" Text="Chat Template:" VerticalAlignment="Center"/>
-                <TextBox x:Name="TxtChatTemplate" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Grid.Row="3" Height="26" Margin="0,8,8,0" Padding="4,2" ToolTip="Leave blank for GGUF default, enter template name (e.g., chatml) or path to .jinja file"/>
-                <Button x:Name="BtnBrowseTemplate" Style="{StaticResource ActionButtonStyle}" Content="Browse..." Grid.Column="2" Grid.Row="3" Height="26" Margin="0,8,8,0"/>
-                <Button x:Name="BtnBenchmarkTemplate" Style="{StaticResource ActionButtonStyle}" Content="Use Benchmark Jinja" Grid.Column="3" Grid.Row="3" Height="26" Margin="0,8,0,0" ToolTip="Load the minimal bundled benchmark.jinja template"/>
+                <!-- Row 3: Hardware Device & Repetitions (always available) -->
+                <Grid Grid.Column="0" Grid.ColumnSpan="4" Grid.Row="3" Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="90"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="LblGpuDevice" Foreground="#CDD6F4" Grid.Column="0" Text="GPU Device:" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="CmbGpuDevice" Height="26" Grid.Column="1" Margin="0,0,8,0" ToolTip="Select which GPU accelerator to use for offloading"/>
+                    <Button x:Name="BtnRefreshGpu" Style="{StaticResource ActionButtonStyle}" Content="Refresh" Grid.Column="2" Height="26" ToolTip="Rescan available GPU accelerators"/>
+
+                    <TextBlock x:Name="LblRepetitions" Foreground="#CDD6F4" Grid.Column="4" Text="Runs per Test:" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="CmbRepetitions" Height="26" Grid.Column="5" IsEditable="True" ToolTip="Number of test repetitions per scenario for averaged metrics">
+                        <ComboBoxItem Content="1" Tag="1"/>
+                        <ComboBoxItem Content="3" Tag="3"/>
+                        <ComboBoxItem Content="5" Tag="5"/>
+                        <ComboBoxItem Content="10" Tag="10" IsSelected="True"/>
+                    </ComboBox>
+                </Grid>
+
+                <!-- Row 4: Chat Template & Template Preset (always available) -->
+                <TextBlock x:Name="LblChatTemplate" Foreground="#CDD6F4" Grid.Column="0" Grid.Row="4" Margin="0,8,0,0" Text="Chat Template:" VerticalAlignment="Center"/>
+                <TextBox x:Name="TxtChatTemplate" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Grid.Row="4" Height="26" Margin="0,8,8,0" Padding="4,2" ToolTip="Leave blank for GGUF default, enter template name (e.g., chatml) or path to .jinja file"/>
+                <Button x:Name="BtnBrowseTemplate" Style="{StaticResource ActionButtonStyle}" Content="Browse..." Grid.Column="2" Grid.Row="4" Height="26" Margin="0,8,8,0"/>
+                <Button x:Name="BtnBenchmarkTemplate" Style="{StaticResource ActionButtonStyle}" Content="Use Benchmark Jinja" Grid.Column="3" Grid.Row="4" Height="26" Margin="0,8,0,0" ToolTip="Load the minimal bundled benchmark.jinja template"/>
+
+                <!-- Row 5: Hardware Performance Profiles -->
+                <Grid Grid.Column="0" Grid.ColumnSpan="4" Grid.Row="5" Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="75"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="140"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="LblProfiles" Foreground="#CDD6F4" Grid.Column="0" Text="Hardware Profile:" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="CmbProfiles" Height="26" Grid.Column="1" Margin="0,0,8,0" ToolTip="Select a hardware performance preset"/>
+                    <Button x:Name="BtnApplyProfile" Style="{StaticResource ActionButtonStyle}" Content="Apply" Grid.Column="2" Height="26" Margin="0,0,6,0" ToolTip="Apply selected profile settings"/>
+                    <Button x:Name="BtnManageProfiles" Style="{StaticResource ActionButtonStyle}" Content="Manage Profiles..." Grid.Column="3" Height="26" Margin="0,0,6,0" ToolTip="Open the visual Profile Manager GUI to create, edit, duplicate, and delete profiles"/>
+                    <Button x:Name="BtnSaveCurrentProfile" Style="{StaticResource ActionButtonStyle}" Content="Save Current..." Grid.Column="4" Height="26" ToolTip="Save current settings as a new profile via the Profile Manager"/>
+                </Grid>
+
+                <!-- Row 6: Advanced Performance Tuning Expander -->
+                <Expander x:Name="ExpAdvancedParams" Grid.Column="0" Grid.ColumnSpan="4" Grid.Row="6" Margin="0,8,0,0" Header="⚡ Advanced Performance Tuning (-fa, -b, -ub, -ctk, -ctv, --mlock, CPU Affinity)" Foreground="#F9E2AF" IsExpanded="False">
+                    <Border Background="#181825" BorderBrush="#45475A" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,4,0,0">
+                        <StackPanel>
+                            <!-- Sub-row 1: Batching & KV-Cache -->
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="15"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="15"/>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="15"/>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="110"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="LblBatchSize" Foreground="#CDD6F4" Grid.Column="0" Text="Batch Size (-b):" VerticalAlignment="Center"/>
+                                <TextBox x:Name="TxtBatchSize" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="1" Height="24" Text="2048" HorizontalContentAlignment="Center" ToolTip="Logical maximum batch size for prompt processing"/>
+
+                                <TextBlock x:Name="LblUbatchSize" Foreground="#CDD6F4" Grid.Column="3" Text="uBatch (-ub):" VerticalAlignment="Center"/>
+                                <TextBox x:Name="TxtUbatchSize" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="4" Height="24" Text="512" HorizontalContentAlignment="Center" ToolTip="Physical micro-batch size to prevent VRAM allocation spikes"/>
+
+                                <TextBlock x:Name="LblCacheTypeK" Foreground="#CDD6F4" Grid.Column="6" Text="Cache K (-ctk):" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="CmbCacheTypeK" Grid.Column="7" Height="24" ToolTip="KV cache data type for K (f16, q8_0, q4_0, turbo2/3/4)">
+                                    <ComboBoxItem Content="f16 (default)" Tag="f16" IsSelected="True"/>
+                                    <ComboBoxItem Content="q8_0" Tag="q8_0"/>
+                                    <ComboBoxItem Content="q4_0" Tag="q4_0"/>
+                                    <ComboBoxItem Content="turbo2" Tag="turbo2"/>
+                                    <ComboBoxItem Content="turbo3" Tag="turbo3"/>
+                                    <ComboBoxItem Content="turbo4" Tag="turbo4"/>
+                                </ComboBox>
+
+                                <TextBlock x:Name="LblCacheTypeV" Foreground="#CDD6F4" Grid.Column="9" Text="Cache V (-ctv):" VerticalAlignment="Center"/>
+                                <ComboBox x:Name="CmbCacheTypeV" Grid.Column="10" Height="24" ToolTip="KV cache data type for V (f16, q8_0, q4_0, turbo2/3/4)">
+                                    <ComboBoxItem Content="f16 (default)" Tag="f16" IsSelected="True"/>
+                                    <ComboBoxItem Content="q8_0" Tag="q8_0"/>
+                                    <ComboBoxItem Content="q4_0" Tag="q4_0"/>
+                                    <ComboBoxItem Content="turbo2" Tag="turbo2"/>
+                                    <ComboBoxItem Content="turbo3" Tag="turbo3"/>
+                                    <ComboBoxItem Content="turbo4" Tag="turbo4"/>
+                                </ComboBox>
+                            </Grid>
+
+                            <!-- Sub-row 2: Flash Attention, Memory Locks, Universal CPU Thread Affinity -->
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="65"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <CheckBox x:Name="ChkFlashAttn" Content="Flash Attention (-fa)" Foreground="#A6E3A1" IsChecked="True" Grid.Column="0" Margin="0,0,16,0" VerticalAlignment="Center" ToolTip="Enables Flash Attention to drastically reduce VRAM footprint on long contexts and boost prompt prefill"/>
+                                <CheckBox x:Name="ChkMlock" Content="Lock RAM (--mlock)" Foreground="#CDD6F4" IsChecked="True" Grid.Column="1" Margin="0,0,16,0" VerticalAlignment="Center" ToolTip="Locks model memory in physical RAM to prevent swapping into Windows pagefile"/>
+                                <CheckBox x:Name="ChkMmap" Content="Memory Map (--mmap)" Foreground="#CDD6F4" IsChecked="True" Grid.Column="2" Margin="0,0,16,0" VerticalAlignment="Center" ToolTip="Direct memory mapping of weights for fast loading"/>
+
+                                <CheckBox x:Name="ChkCpuAffinity" Content="CPU Affinity:" Foreground="#89B4FA" IsChecked="False" Grid.Column="3" Margin="0,0,6,0" VerticalAlignment="Center" ToolTip="Bind worker threads to specific CPU cores (e.g. 0xFF for cores 0-7, 0x0F for cores 0-3, 0xFFFF for 16 cores) to avoid cross-CCX/cross-CCD latency or E-core throttling"/>
+                                <TextBox x:Name="TxtCpuAffinity" Background="#313244" BorderBrush="#585B70" Foreground="#CDD6F4" Grid.Column="4" Height="24" Text="0xFF" HorizontalContentAlignment="Center" ToolTip="Hex mask (e.g. 0xFF for cores 0-7, 0x0F for cores 0-3)"/>
+                            </Grid>
+
+                            <!-- Sub-row 3: Speculative & Experimental Decoders -->
+                            <WrapPanel Margin="0,0,0,0">
+                                <CheckBox x:Name="ChkDflash" Content="DFlash 2 Speculative (--dflash)" Foreground="#FAB387" IsChecked="False" Margin="0,0,16,2" ToolTip="Enables DFlash speculative decoding acceleration"/>
+                                <CheckBox x:Name="ChkGdnReplay" Content="MTP Rollback (--gdn-replay)" Foreground="#FAB387" IsChecked="False" Margin="0,0,16,2" ToolTip="Enables Gated DeltaNet ingredient replay for Qwen3.5 Multi-Token Prediction"/>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+                </Expander>
             </Grid>
         </GroupBox>
 
@@ -249,6 +364,9 @@
                                 <ComboBoxItem Content="Sweep Threads (2, 4, 8, 12, 16)" Tag="threads" IsSelected="True"/>
                                 <ComboBoxItem Content="Sweep GPU Offload (0, 16, 33, 99)" Tag="gpu"/>
                                 <ComboBoxItem Content="Sweep Context Window (1024, 2048, 4096, 8192)" Tag="context"/>
+                                <ComboBoxItem Content="Sweep KV-Cache Quant (f16, q8_0, turbo2, turbo4)" Tag="kvcache"/>
+                                <ComboBoxItem Content="Sweep Flash Attention (On vs Off)" Tag="flashattn"/>
+                                <ComboBoxItem Content="Sweep Batch Size (512, 1024, 2048, 4096)" Tag="batch"/>
                             </ComboBox>
                         </DockPanel>
                     </StackPanel>
@@ -267,10 +385,13 @@
             <!-- Test Suite Scenarios (shared across all modes) -->
             <GroupBox x:Name="GrpSuite" BorderBrush="#45475A" Foreground="#89B4FA" Grid.Column="2" Header="Test Suite Scenarios" Padding="10">
                 <StackPanel>
-                    <CheckBox x:Name="ChkScenShort" Content="Scenario 1: Short Query (Quick Q&amp;A)" Foreground="#CDD6F4" IsChecked="True" Margin="0,8,0,8"/>
-                    <CheckBox x:Name="ChkScenReason" Content="Scenario 2: Code &amp; Logic (Balanced)" Foreground="#CDD6F4" IsChecked="True" Margin="0,0,0,8"/>
-                    <CheckBox x:Name="ChkScenPrefill" Content="Scenario 3: Long Context (Prefill)" Foreground="#CDD6F4" IsChecked="True" Margin="0,0,0,8"/>
-                    <TextBlock x:Name="LblScenEvalHeader" FontWeight="Bold" Foreground="#A6ADC8" Margin="0,16,0,4" Text="Scenarios evaluate:"/>
+                    <CheckBox x:Name="ChkWarmup" Content="Warmup Model before benchmark (1 run)" Foreground="#F9E2AF" IsChecked="True" Margin="0,4,0,10"/>
+                    <Separator Background="#45475A" Margin="0,0,0,10"/>
+                    <CheckBox x:Name="ChkScenShort" Content="Scenario 1: Quick Q&amp;A (96 t out)" Foreground="#CDD6F4" IsChecked="True" Margin="0,0,0,8"/>
+                    <CheckBox x:Name="ChkScenReason" Content="Scenario 2: Code &amp; Logic (256 t out)" Foreground="#CDD6F4" IsChecked="True" Margin="0,0,0,8"/>
+                    <CheckBox x:Name="ChkScenPrefill" Content="Scenario 3: Heavy Prefill (1200+ t in)" Foreground="#CDD6F4" IsChecked="True" Margin="0,0,0,8"/>
+                    <CheckBox x:Name="ChkScenStress" Content="Scenario 4: Sustained Generation (512 t out)" Foreground="#CDD6F4" IsChecked="True" Margin="0,0,0,8"/>
+                    <TextBlock x:Name="LblScenEvalHeader" FontWeight="Bold" Foreground="#A6ADC8" Margin="0,12,0,4" Text="Scenarios evaluate:"/>
                     <TextBlock x:Name="LblScenPromptSpeed" Foreground="#A6ADC8" Margin="8,0,0,2" Text="• Prompt evaluation throughput (tokens/sec)"/>
                     <TextBlock x:Name="LblScenGenSpeed" Foreground="#A6ADC8" Margin="8,0,0,2" Text="• Generation throughput (tokens/sec)"/>
                     <TextBlock x:Name="LblScenLoadTime" Foreground="#A6ADC8" Margin="8,0,0,2" Text="• Cold model load time (milliseconds)"/>
