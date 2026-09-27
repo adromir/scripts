@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.25
+// @version       0.0.26
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -1359,7 +1359,7 @@
 			mainList.classList.add('gemini-mod-sortable-init');
 			const existingSortable = Sortable.get(mainList);
 			if (existingSortable) {
-				try { existingSortable.destroy(); } catch (e) {}
+				try { existingSortable.destroy(); } catch (e) { }
 			}
 			new Sortable(mainList, {
 				group: 'conversations',
