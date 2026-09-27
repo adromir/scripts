@@ -183,7 +183,8 @@ window.GeminiMod.styles = `
     .folder.closed .folder-content { max-height: 0; }
 
     /* Chat items inside folders - match gem-nav-list-item look */
-    .folder-content .conversation-items-container {
+    .folder-content .conversation-items-container,
+    .folder-content gem-nav-list-item {
         display: block;
         border-radius: 9999px;
         margin: 0 8px;
@@ -192,10 +193,12 @@ window.GeminiMod.styles = `
         transition: background-color 0.15s;
         position: relative;
     }
-    .folder-content .conversation-items-container::before {
+    .folder-content .conversation-items-container::before,
+    .folder-content gem-nav-list-item::before {
         content: none;
     }
-    .folder-content .conversation-items-container:hover {
+    .folder-content .conversation-items-container:hover,
+    .folder-content gem-nav-list-item:hover {
         background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(227, 227, 227, 0.08));
     }
 
@@ -215,7 +218,7 @@ window.GeminiMod.styles = `
     #add-folder-btn::before { content: none !important; }
     #add-folder-btn:hover { background-color: color-mix(in srgb, #e3e3e3 8%, transparent); color: #e3e3e3; }
 
-    .conversation-items-container { cursor: grab; }
+    .conversation-items-container, gem-nav-list-item { cursor: grab; }
 
     .folder-context-menu {
         position: fixed; z-index: 10000;

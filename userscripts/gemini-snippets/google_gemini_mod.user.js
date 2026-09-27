@@ -53,10 +53,10 @@
 	const GEMINI_DOC_CANVAS_EDITOR_SELECTOR = ".ProseMirror";
 	const GEMINI_DOC_CANVAS_TITLE_SELECTOR = "h2.title-text";
 	const GEMINI_INPUT_FIELD_SELECTORS = ['div[role="textbox"]', '.ql-editor p', '.ql-editor', 'div[contenteditable="true"]'];
-	const FOLDER_CHAT_ITEM_SELECTOR = 'div[data-test-id="conversation"]';
-	const FOLDER_CHAT_CONTAINER_SELECTOR = '.conversation-items-container';
-	const FOLDER_CHAT_LIST_CONTAINER_SELECTOR = 'conversations-list .conversations-container';
-	const FOLDER_INJECTION_POINT_SELECTOR = 'div.chat-history-list';
+	const FOLDER_CHAT_ITEM_SELECTOR = 'gem-nav-list-item, div[data-test-id="conversation"]';
+	const FOLDER_CHAT_CONTAINER_SELECTOR = 'gem-nav-list-item, .conversation-items-container';
+	const FOLDER_CHAT_LIST_CONTAINER_SELECTOR = 'conversations-list mat-nav-list, mat-nav-list, conversations-list .conversations-container';
+	const FOLDER_INJECTION_POINT_SELECTOR = '#sidenav-section-content-chats, conversations-list, div.chat-history-list, .conversations-list';
 
 
 	// --- Download Feature Configuration ---
@@ -958,21 +958,20 @@
 		const foldersContainerId = 'folder-ui-container';
 		if (document.getElementById(foldersContainerId)) return true; // Already initialized
 
-		// Find the "Recent" (Letzte Unterhaltungen) header to insert before it
-		const headers = document.querySelectorAll('button.expandable-section-header, div.expandable-section-header, .expandable-section-header');
-		let recentHeader = null;
-
-		// Typically, the first one is Notebooks, the second is Recent. 
-		// If only one exists, it's Recent.
-		if (headers.length >= 2) {
-			recentHeader = headers[1];
-		} else if (headers.length === 1) {
-			recentHeader = headers[0];
+		// Find insertion target: chat header or conversations list / section
+		let recentHeader = document.querySelector('#sidenav-section-header-chats, [aria-controls="sidenav-section-content-chats"]');
+		if (!recentHeader) {
+			const headers = document.querySelectorAll('button.expandable-section-header, div.expandable-section-header, .expandable-section-header');
+			if (headers.length >= 2) {
+				recentHeader = headers[1];
+			} else if (headers.length === 1) {
+				recentHeader = headers[0];
+			}
 		}
 
 		if (!recentHeader) {
-			// Fallback to old method
-			const fallbackList = document.querySelector('gem-nav-list, .conversations-list');
+			// Fallback: look for conversations-list or sidenav chats section
+			const fallbackList = document.querySelector('conversations-list, #sidenav-section-content-chats, mat-nav-list, gem-nav-list, .conversations-list');
 			if (!fallbackList) return false;
 			recentHeader = fallbackList;
 		}
@@ -989,7 +988,7 @@
 		renderFolders();
 
 		// Observe chat list changes to identify new conversations
-		const chatHistoryList = document.querySelector('gem-nav-list, .conversations-list');
+		const chatHistoryList = document.querySelector('conversations-list, #sidenav-section-content-chats, mat-nav-list, gem-nav-list, .conversations-list');
 		if (chatHistoryList) {
 			const observer = new MutationObserver(() => {
 				processConversationItems(chatHistoryList);
@@ -1015,7 +1014,7 @@
 		if (!container) return;
 
 		const headerScope = getAngularScope('.expandable-section-title') || '';
-		const itemScope = getAngularScope('.gem-nav-list-item') || getAngularScope('.title-text') || '';
+		const itemScope = getAngularScope('gem-nav-list-item, .gem-nav-list-item') || getAngularScope('.title-text') || '';
 
 		// --- Section header (clone native "Notebooks" style) ---
 		const STORAGE_KEY_SECTION_OPEN = 'gemini_folder_section_open';
@@ -1059,9 +1058,17 @@
 		sectionHeader.appendChild(sectionChevron);
 		container.appendChild(sectionHeader);
 
-		// Remove existing folder-container if exists to re-render
+		// Remove existing folder-container if exists to re-render, preserving items
 		let folderWrapper = document.getElementById('folder-section-body');
-		if (folderWrapper) folderWrapper.remove();
+		if (folderWrapper) {
+			const mainList = document.querySelector(FOLDER_CHAT_LIST_CONTAINER_SELECTOR);
+			if (mainList) {
+				folderWrapper.querySelectorAll(FOLDER_CHAT_ITEM_SELECTOR).forEach(item => {
+					mainList.appendChild(item);
+				});
+			}
+			folderWrapper.remove();
+		}
 
 		// Inner container for folders (this gets collapsed)
 		// We intentionally do NOT use the native 'expandable-section-content' class here:
@@ -1134,6 +1141,11 @@
 				await saveFolderConfiguration();
 			}
 		});
+
+		const chatListEl = document.querySelector(FOLDER_INJECTION_POINT_SELECTOR);
+		if (chatListEl) {
+			processConversationItems(chatListEl);
+		}
 	}
 
 	function createFolderElement(folder, itemScope) {
@@ -1219,13 +1231,18 @@
 	}
 
 	function getConversationId(element) {
+		if (!element) return null;
 		// Extract ID from Gemini's DOM. Needs to be robust.
 		// Usually in the link href or data-test-id
-		const link = element.querySelector('a');
+		const link = (element.tagName === 'A' ? element : null) || element.querySelector('a') || element.closest('a');
 		if (link) {
-			const match = link.href.match(/\/app\/([a-zA-Z0-9]+)/);
+			const href = link.getAttribute('href') || link.href || '';
+			const match = href.match(/\/(?:app|conversation)\/([a-zA-Z0-9_-]+)/);
 			if (match) return match[1];
 		}
+		const jslog = (element.getAttribute && element.getAttribute('jslog')) || '';
+		let m = jslog.match(/"c_([A-Za-z0-9_-]+)"/) || jslog.match(/c_([A-Za-z0-9_-]+)/);
+		if (m) return m[1];
 		return null;
 	}
 
@@ -1299,21 +1316,22 @@
 
 		// 1. Identify Main Conversation Container (Gemini's list)
 		// Usually it's a specific container inside chatHistoryList
-		const mainList = chatHistoryList.querySelector(FOLDER_CHAT_LIST_CONTAINER_SELECTOR) || chatHistoryList;
+		const mainList = (chatHistoryList.matches && chatHistoryList.matches(FOLDER_CHAT_LIST_CONTAINER_SELECTOR))
+			? chatHistoryList
+			: (chatHistoryList.querySelector(FOLDER_CHAT_LIST_CONTAINER_SELECTOR) || chatHistoryList);
+
+		const folderUiContainer = document.getElementById('folder-ui-container') || document.getElementById('folder-section-body') || document.getElementById('folder-container');
 
 		// 2. Find all conversation items
 		const items = Array.from(document.querySelectorAll(FOLDER_CHAT_ITEM_SELECTOR)).filter(el => {
 			// Filter out items that are already inside our folders to update them if state changed,
 			// or items in the main list.
-			return listContains(chatHistoryList, el) || listContains(document.getElementById('folder-container'), el);
+			return listContains(chatHistoryList, el) || listContains(mainList, el) || listContains(folderUiContainer, el);
 		});
 
 		items.forEach(item => {
 			// Ensure it has the sortable class/structure
-			if (!item.parentNode.classList.contains('conversation-items-container')) {
-				// Wrap if necessary or apply class (Gemini structure varies)
-				// Note: Gemini usually has items directly in a container.
-				// We might need to make sure the ITEM itself is draggable.
+			if (!item.parentNode?.classList?.contains('conversation-items-container')) {
 				item.classList.add('conversation-items-container'); // reuse class for styling
 			}
 
@@ -1330,20 +1348,19 @@
 				}
 			} else {
 				// Should be in the main list
-				// This is tricky because Gemini renders this list dynamically.
-				// If we moved it out, we might need to move it back to a specific place or just 'unhide' it if we hid it.
-				// For now, appending to the main chat list container if found.
 				if (mainList && !mainList.contains(item)) {
-					// Try to place it back roughly where it belongs by date? Hard.
-					// Just append to top or bottom?
 					mainList.appendChild(item);
 				}
 			}
 		});
 
 		// 3. Ensure Main List is Sortable (so items can be dragged FROM it)
-		if (mainList && !mainList.classList.contains('gemini-mod-sortable-init')) {
+		if (mainList && typeof Sortable !== 'undefined' && (!mainList.classList.contains('gemini-mod-sortable-init') || !Sortable.get(mainList))) {
 			mainList.classList.add('gemini-mod-sortable-init');
+			const existingSortable = Sortable.get(mainList);
+			if (existingSortable) {
+				try { existingSortable.destroy(); } catch (e) {}
+			}
 			new Sortable(mainList, {
 				group: 'conversations',
 				animation: 150,
