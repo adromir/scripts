@@ -138,13 +138,25 @@ window.GeminiMod.styles = `
         line-height: 1.25rem;
     }
     #folder-section-header .toggle-icon {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
+        width: 20px;
+        height: 20px;
         flex-shrink: 0;
         margin-left: auto;
         color: #c4c7c5;
-        font-size: 18px;
+        transition: color 0.15s ease;
+    }
+    #folder-section-header .toggle-icon svg {
+        display: block;
+        transition: transform 0.2s ease;
+    }
+    #folder-section-header.collapsed .toggle-icon svg {
+        transform: rotate(-90deg) !important;
+    }
+    #folder-section-header:not(.collapsed) .toggle-icon svg {
+        transform: rotate(0deg) !important;
     }
     #folder-section-header:hover .toggle-icon {
         color: #e3e3e3;
@@ -217,6 +229,11 @@ window.GeminiMod.styles = `
     .folder-header:hover {
         background-color: rgba(227, 227, 227, 0.08) !important;
     }
+    .folder-header.folder-drag-over {
+        background-color: rgba(227, 227, 227, 0.16) !important;
+        outline: 1px dashed #a8c7fa !important;
+        outline-offset: -1px;
+    }
     .folder-name {
         flex: 1;
         min-width: 0;
@@ -226,12 +243,13 @@ window.GeminiMod.styles = `
         margin-left: 0;
         padding-right: 8px;
         font-size: 0.875rem;
+        color: #e3e3e3 !important;
     }
 
     .folder-controls {
-        display: flex;
+        display: flex !important;
         align-items: center;
-        gap: 4px;
+        gap: 2px;
         flex-shrink: 0;
         margin-left: auto;
     }
@@ -244,13 +262,13 @@ window.GeminiMod.styles = `
         border-radius: 50% !important;
         width: 24px;
         height: 24px;
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
         font-size: 1.1em;
         line-height: 1;
         opacity: 0;
-        transition: opacity 0.15s, background-color 0.15s;
+        transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
     }
     .folder-header:hover .folder-options-btn {
         opacity: 1;
@@ -261,17 +279,25 @@ window.GeminiMod.styles = `
     }
 
     .folder-toggle-icon {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
         width: 20px;
         height: 20px;
-        transition: transform 0.2s;
+        flex-shrink: 0;
         color: #c4c7c5;
-        font-size: 16px;
+        transition: color 0.15s ease;
+        cursor: pointer;
     }
-    .folder.closed .folder-toggle-icon {
-        transform: rotate(-90deg);
+    .folder-toggle-icon svg {
+        display: block;
+        transition: transform 0.2s ease;
+    }
+    .folder.closed .folder-toggle-icon svg {
+        transform: rotate(-90deg) !important;
+    }
+    .folder:not(.closed) .folder-toggle-icon svg {
+        transform: rotate(0deg) !important;
     }
     .folder-header:hover .folder-toggle-icon {
         color: #e3e3e3;
@@ -285,7 +311,7 @@ window.GeminiMod.styles = `
         transition: max-height 0.25s ease-in-out;
     }
     .folder.closed .folder-content {
-        max-height: 0;
+        max-height: 0 !important;
     }
 
     /* Chat items inside folders - match gem-nav-list-item look */

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.27
+// @version       0.0.29
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -17,9 +17,9 @@
 // @grant         unsafeWindow
 // @require       https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js
 // @require       https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js
-// @require       https://update.greasyfork.org/scripts/584958/1863999/gemini_mod_styles.js
-// @require       https://update.greasyfork.org/scripts/584959/1864002/gemini_mod_utils.js
-// @require       https://update.greasyfork.org/scripts/584956/1863997/gemini_mod_drivejs.js
+// @require       https://update.greasyfork.org/scripts/584958/gemini_mod_styles.js
+// @require       https://update.greasyfork.org/scripts/584959/gemini_mod_utils.js
+// @require       https://update.greasyfork.org/scripts/584956/gemini_mod_drivejs.js
 // @downloadURL   https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // @updateURL     https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // ==/UserScript==
@@ -30,6 +30,397 @@
 	// Ensure Namespace exists
 	window.GeminiMod = window.GeminiMod || {};
 
+	// Embedded styles to guarantee instant updates and protect against stale CDN caches
+	window.GeminiMod.styles = `
+    /* --- Toolbar Styles --- */
+    #gemini-snippet-toolbar-userscript {
+        position: fixed !important; top: 0 !important; left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: auto !important; max-width: 80% !important;
+        padding: 10px 15px !important; z-index: 999998 !important; /* Below settings panel */
+        display: flex !important; flex-wrap: wrap !important;
+        gap: 8px !important; align-items: center !important; font-family: 'Roboto', 'Arial', sans-serif !important;
+        box-sizing: border-box !important; background-color: rgba(40, 42, 44, 0.95) !important;
+        border-radius: 0 0 16px 16px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+    #gemini-snippet-toolbar-userscript button,
+    #gemini-snippet-toolbar-userscript select {
+        padding: 4px 10px !important; cursor: pointer !important; background-color: #202122 !important;
+        color: #e3e3e3 !important; border-radius: 16px !important; font-size: 13px !important;
+        font-family: inherit !important; font-weight: 500 !important; height: 28px !important;
+        box-sizing: border-box !important; vertical-align: middle !important;
+        transition: background-color 0.2s ease, transform 0.1s ease !important;
+        border: none !important; flex-shrink: 0;
+    }
+    #gemini-snippet-toolbar-userscript select {
+        padding-right: 25px !important; appearance: none !important;
+        background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="%23e3e3e3" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>') !important;
+        background-repeat: no-repeat !important; background-position: right 8px center !important; background-size: 12px 12px !important;
+    }
+    #gemini-snippet-toolbar-userscript option {
+        background-color: #2a2a2a !important; color: #e3e3e3 !important;
+        font-weight: normal !important; padding: 5px 10px !important;
+    }
+    #gemini-snippet-toolbar-userscript button:hover,
+    #gemini-snippet-toolbar-userscript select:hover { background-color: #4a4e51 !important; }
+    #gemini-snippet-toolbar-userscript button:active { background-color: #5f6368 !important; transform: scale(0.98) !important; }
+    .userscript-toolbar-spacer { margin-left: auto !important; }
+
+    /* --- Settings Panel & Modal Styles --- */
+    #gemini-mod-settings-overlay, #gemini-mod-type-modal-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background-color: rgba(0,0,0,0.6); z-index: 999999;
+    }
+    #gemini-mod-settings-panel, #gemini-mod-type-modal {
+        position: fixed; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: #282a2c; color: #e3e3e3; border-radius: 16px;
+        padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        font-family: 'Roboto', 'Arial', sans-serif !important;
+    }
+    #gemini-mod-settings-panel {
+        width: 90vw; max-width: 800px; max-height: 80vh; overflow-y: auto;
+    }
+    #gemini-mod-type-modal {
+        text-align: center;
+    }
+    #gemini-mod-type-modal h3 { margin-top: 0; }
+    #gemini-mod-type-modal button { margin: 0 10px; }
+    #gemini-mod-settings-panel h2 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px; }
+    #gemini-mod-settings-panel h3 { margin-top: 20px; border-bottom: 1px solid #444; padding-bottom: 8px; }
+    #gemini-mod-settings-panel label { display: block; margin: 10px 0 5px; font-weight: 500; }
+    #gemini-mod-settings-panel input[type="text"], #gemini-mod-settings-panel textarea {
+        width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #5f6368;
+        background-color: #202122; color: #e3e3e3; box-sizing: border-box;
+    }
+    #gemini-mod-settings-panel textarea { min-height: 80px; resize: vertical; }
+    #gemini-mod-settings-panel .item-group {
+        border: 1px solid #444; border-radius: 8px; padding: 15px; margin-bottom: 10px;
+        display: flex; gap: 10px; align-items: flex-start;
+        cursor: grab;
+    }
+    #gemini-mod-settings-panel .item-content { flex-grow: 1; }
+    #gemini-mod-settings-panel .dropdown-options-container { margin-left: 20px; margin-top: 10px; }
+    #gemini-mod-settings-panel .option-item { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: center; margin-bottom: 5px; }
+    #gemini-mod-settings-panel button {
+            padding: 4px 10px !important; cursor: pointer !important; background-color: #3c4043 !important;
+            color: #e3e3e3 !important; border-radius: 16px !important; font-size: 13px !important;
+            border: none !important; transition: background-color 0.2s ease;
+    }
+    #gemini-mod-settings-panel button:hover { background-color: #4a4e51 !important; }
+    #gemini-mod-settings-panel .remove-btn, .dialog-btn-delete { background-color: #5c2b2b !important; color: white !important; }
+    #gemini-mod-settings-panel .remove-btn:hover, .dialog-btn-delete:hover { background-color: #7d3a3a !important; }
+    #gemini-mod-settings-panel .settings-actions {
+        margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px;
+    }
+
+    /* --- Folder UI Styles --- */
+    /* Match Gemini sidebar design: Google Sans font, Material colors, proper spacing */
+    #folder-ui-container {
+        display: block;
+        width: 100%;
+        margin: 0 !important;
+        padding: 0;
+        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
+        box-sizing: border-box;
+    }
+
+    /* --- Section header: matches "Notebooks" style --- */
+    #folder-section-header {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        width: calc(100% - 16px) !important;
+        margin: 2px 8px !important;
+        box-sizing: border-box !important;
+        padding: 0 12px !important;
+        min-height: 36px !important;
+        background: transparent !important;
+        border: none !important;
+        border-radius: 9999px !important;
+        cursor: pointer;
+        text-align: left;
+        color: #c4c7c5 !important;
+        font-family: inherit;
+        gap: 8px;
+        transition: background-color 0.15s ease, color 0.15s ease;
+        outline: none;
+    }
+    #folder-section-header:hover {
+        background-color: rgba(227, 227, 227, 0.08) !important;
+        color: #e3e3e3 !important;
+    }
+    #folder-section-header .expandable-section-title {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1.25rem;
+    }
+    #folder-section-header .toggle-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+        margin-left: auto;
+        color: #c4c7c5;
+        transition: color 0.15s ease;
+    }
+    #folder-section-header .toggle-icon svg {
+        display: block;
+        transition: transform 0.2s ease;
+    }
+    #folder-section-header.collapsed .toggle-icon svg {
+        transform: rotate(-90deg) !important;
+    }
+    #folder-section-header:not(.collapsed) .toggle-icon svg {
+        transform: rotate(0deg) !important;
+    }
+    #folder-section-header:hover .toggle-icon {
+        color: #e3e3e3;
+    }
+    
+    /* Folder Items & Add Button */
+    #folder-container { padding-bottom: 4px; }
+    
+    #add-folder-btn {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        width: calc(100% - 16px) !important;
+        margin: 2px 8px !important;
+        box-sizing: border-box !important;
+        padding: 0 12px !important;
+        min-height: 36px !important;
+        background: transparent !important;
+        border: none !important;
+        color: #c4c7c5 !important;
+        border-radius: 9999px !important;
+        cursor: pointer;
+        text-align: left;
+        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
+        font-size: 0.875rem;
+        font-weight: 400;
+        gap: 0 !important;
+        transition: background-color 0.15s ease, color 0.15s ease;
+        outline: none;
+    }
+    #add-folder-btn::before { content: none !important; }
+    #add-folder-btn:hover {
+        background-color: rgba(227, 227, 227, 0.08) !important;
+        color: #e3e3e3 !important;
+    }
+    
+    .add-folder-icon, .folder-icon-wrapper { 
+        margin-right: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    /* Folder Specific */
+    .folder { margin: 0; padding: 0; overflow: visible; }
+    .folder-header {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        width: calc(100% - 16px) !important;
+        margin: 2px 8px !important;
+        box-sizing: border-box !important;
+        padding: 0 12px !important;
+        min-height: 36px !important;
+        background: transparent !important;
+        border: none !important;
+        color: #e3e3e3 !important;
+        border-radius: 9999px !important;
+        cursor: pointer;
+        text-align: left;
+        position: relative;
+        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
+        font-size: 0.875rem;
+        transition: background-color 0.15s ease;
+        outline: none;
+    }
+    .folder-header:hover {
+        background-color: rgba(227, 227, 227, 0.08) !important;
+    }
+    .folder-header.folder-drag-over {
+        background-color: rgba(227, 227, 227, 0.16) !important;
+        outline: 1px dashed #a8c7fa !important;
+        outline-offset: -1px;
+    }
+    .folder-name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-left: 0;
+        padding-right: 8px;
+        font-size: 0.875rem;
+        color: #e3e3e3 !important;
+    }
+
+    .folder-controls {
+        display: flex !important;
+        align-items: center;
+        gap: 2px;
+        flex-shrink: 0;
+        margin-left: auto;
+    }
+    .folder-options-btn {
+        background: none !important;
+        border: none !important;
+        color: #c4c7c5 !important;
+        cursor: pointer;
+        padding: 0;
+        border-radius: 50% !important;
+        width: 24px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1em;
+        line-height: 1;
+        opacity: 0;
+        transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+    }
+    .folder-header:hover .folder-options-btn {
+        opacity: 1;
+    }
+    .folder-options-btn:hover {
+        background-color: rgba(227, 227, 227, 0.12) !important;
+        color: #fff !important;
+    }
+
+    .folder-toggle-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+        color: #c4c7c5;
+        transition: color 0.15s ease;
+        cursor: pointer;
+    }
+    .folder-toggle-icon svg {
+        display: block;
+        transition: transform 0.2s ease;
+    }
+    .folder.closed .folder-toggle-icon svg {
+        transform: rotate(-90deg) !important;
+    }
+    .folder:not(.closed) .folder-toggle-icon svg {
+        transform: rotate(0deg) !important;
+    }
+    .folder-header:hover .folder-toggle-icon {
+        color: #e3e3e3;
+    }
+
+    /* Folder content area - items inside */
+    .folder-content {
+        min-height: 0;
+        max-height: 2000px;
+        overflow: hidden;
+        transition: max-height 0.25s ease-in-out;
+    }
+    .folder.closed .folder-content {
+        max-height: 0 !important;
+    }
+
+    /* Chat items inside folders - match gem-nav-list-item look */
+    .folder-content .conversation-items-container,
+    .folder-content gem-nav-list-item {
+        display: block;
+        border-radius: 9999px !important;
+        margin: 2px 8px !important;
+        width: calc(100% - 16px) !important;
+        box-sizing: border-box !important;
+        padding: 0;
+        border: none;
+        transition: background-color 0.15s;
+        position: relative;
+    }
+    .folder-content .conversation-items-container::before,
+    .folder-content gem-nav-list-item::before {
+        content: none;
+    }
+    .folder-content .conversation-items-container:hover,
+    .folder-content gem-nav-list-item:hover {
+        background-color: rgba(227, 227, 227, 0.08) !important;
+    }
+
+    .conversation-items-container, gem-nav-list-item { cursor: grab; }
+
+    .folder-context-menu {
+        position: fixed; z-index: 10000;
+        background-color: #1e1f20;
+        border: 1px solid #444746;
+        border-radius: 4px;
+        padding: 8px 0;
+        box-shadow: 0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);
+        display: none;
+        min-width: 160px;
+    }
+    .folder-context-menu-item {
+        padding: 8px 12px; cursor: pointer; white-space: nowrap;
+        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
+        font-size: 0.875rem; font-weight: 500; line-height: 1.25rem;
+        color: #e3e3e3;
+    }
+    .folder-context-menu-item:hover { background-color: rgba(227, 227, 227, 0.08); }
+    .folder-context-menu-item.delete { color: #f2b8b5; }
+    .folder-context-menu-item.delete:hover { background-color: rgba(242, 184, 181, 0.08); }
+
+    .sortable-ghost { opacity: 0.4; }
+    .item-group.sortable-ghost { background-color: #555 !important; }
+
+
+    /* --- Dialog & Color Picker Styles --- */
+    .custom-dialog-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(34, 34, 34, 0.75); z-index: 1000000; display: flex; align-items: center; justify-content: center; }
+    .custom-dialog-box { background-color: #333333; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: center; max-width: 400px; border: 1px solid var(--surface-4); }
+    .custom-dialog-box p, .custom-dialog-box h2 { margin: 0 0 20px; font-family: 'Roboto', Arial, sans-serif; color: #FFFFFF; }
+    .custom-dialog-btn { border: none; border-radius: 8px; padding: 10px 20px; cursor: pointer; font-weight: 500; margin: 0 10px; }
+    .dialog-btn-confirm { background-color: #8ab4f8; color: #202124; }
+    .dialog-btn-cancel { background-color: var(--surface-4); color: var(--on-surface); }
+    .custom-dialog-input { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-4); background-color: var(--surface-1); color: var(--on-surface); font-size: 16px; margin-bottom: 20px; }
+    .color-picker-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+    .color-picker-dialog .color-swatch { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; position: relative; }
+    .color-picker-dialog .color-swatch:hover { border: 2px solid var(--on-primary-surface); }
+    .color-picker-dialog .color-swatch.selected::after { content: ""; position: absolute; inset: 0; border: 3px solid #fff; border-radius: 50%; box-sizing: border-box; pointer-events: none; }
+
+    /* --- Tabbed Settings Styles --- */
+    #gemini-mod-settings-panel h2 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 15px; margin-bottom: 0; }
+    .settings-container { display: flex; height: 500px; min-height: 400px; }
+    .settings-sidebar { width: 180px; border-right: 1px solid #444; padding: 15px 10px; display: flex; flex-direction: column; gap: 5px; background-color: #202122; border-bottom-left-radius: 16px; }
+    .settings-content { flex-grow: 1; padding: 20px; overflow-y: auto; background-color: #282a2c; border-bottom-right-radius: 16px; }
+    .tab-btn {
+        text-align: left; padding: 10px 15px; background: none; border: none; color: #aaa;
+        cursor: pointer; border-radius: 8px; font-size: 14px; font-weight: 500;
+        transition: all 0.2s ease; width: 100%; box-sizing: border-box;
+    }
+    .tab-btn:hover { background-color: #3c4043; color: #e3e3e3; }
+    .tab-btn.active { background-color: #4285f4; color: white; }
+    .tab-pane { display: none; animation: fadeIn 0.2s; }
+    .tab-pane.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* Help Link */
+    .help-link { font-size: 12px; color: #8ab4f8; text-decoration: none; margin-left: 5px; display: inline-flex; align-items: center; }
+    .help-link:hover { text-decoration: underline; }
+	`;
+
 	// ===================================================================================
 	// I. CONFIGURATION SECTION
 	// ===================================================================================
@@ -38,26 +429,17 @@
 	const STORAGE_KEY_TOOLBAR_ITEMS = "geminiModToolbarItems_v2";
 	const STORAGE_KEY_FOLDERS = 'gemini_folders';
 	const STORAGE_KEY_CONVO_FOLDERS = 'gemini_convo_folders';
-	const STORAGE_KEY_GDRIVE_TOKEN = 'gemini_gdrive_token';             // Kept for reference, used by Drive module
-	const STORAGE_KEY_GDRIVE_CLIENT_ID = 'gemini_gdrive_client_id';     // Kept for reference, used by Drive module
 
 	// --- Toolbar UI Labels ---
 	const SETTINGS_BUTTON_LABEL = "⚙️ Settings";
 
 	// --- CSS Selectors ---
-	const GEMINI_CODE_CANVAS_TITLE_SELECTOR = "code-immersive-panel h2.title-text";
-	const GEMINI_CODE_CANVAS_PANEL_SELECTOR = 'code-immersive-panel';
-	const GEMINI_CODE_CANVAS_SHARE_BUTTON_SELECTOR = "toolbar div.action-buttons share-button > button";
-	const GEMINI_CODE_CANVAS_COPY_BUTTON_SELECTOR = "copy-button[data-test-id='copy-button'] > button.copy-button";
-	const GEMINI_DOC_CANVAS_PANEL_SELECTOR = "immersive-panel";
 	const GEMINI_DOC_CANVAS_EDITOR_SELECTOR = ".ProseMirror";
 	const GEMINI_DOC_CANVAS_TITLE_SELECTOR = "h2.title-text";
 	const GEMINI_INPUT_FIELD_SELECTORS = ['div[role="textbox"]', '.ql-editor p', '.ql-editor', 'div[contenteditable="true"]'];
 	const FOLDER_CHAT_ITEM_SELECTOR = 'gem-nav-list-item, div[data-test-id="conversation"]';
-	const FOLDER_CHAT_CONTAINER_SELECTOR = 'gem-nav-list-item, .conversation-items-container';
 	const FOLDER_CHAT_LIST_CONTAINER_SELECTOR = 'conversations-list mat-nav-list, mat-nav-list, conversations-list .conversations-container';
 	const FOLDER_INJECTION_POINT_SELECTOR = '#sidenav-section-content-chats, conversations-list, div.chat-history-list, .conversations-list';
-
 
 	// --- Download Feature Configuration ---
 	const DEFAULT_DOWNLOAD_EXTENSION = "txt";
@@ -105,9 +487,22 @@
 	const showConfirm = GeminiMod.utils.showConfirmationDialog;
 	const showPrompt = GeminiMod.utils.showCustomPromptDialog;
 	const showColorPicker = GeminiMod.utils.showColorPickerDialog;
-	const injectCSS = GeminiMod.utils.injectCustomCSS;
-	const getReactProps = GeminiMod.utils.getReactProps;
-	const getClassProperty = GeminiMod.utils.getClassProperty;
+	const injectCSS = function () {
+		try {
+			if (typeof GM_addStyle !== 'undefined') {
+				GM_addStyle(window.GeminiMod.styles);
+			} else {
+				const style = document.createElement('style');
+				style.textContent = window.GeminiMod.styles;
+				document.head.appendChild(style);
+			}
+		} catch (error) {
+			console.error("Gemini Mod Userscript: Failed to inject custom CSS:", error);
+			const style = document.createElement('style');
+			style.textContent = window.GeminiMod.styles;
+			document.head.appendChild(style);
+		}
+	};
 
 	// --- Text Insertion Logic ---
 
@@ -1087,6 +1482,40 @@
 		return null;
 	}
 
+	function createChevronSvg(isOpen = true) {
+		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		svg.setAttribute('viewBox', '0 0 24 24');
+		svg.setAttribute('width', '18');
+		svg.setAttribute('height', '18');
+		svg.setAttribute('fill', 'currentColor');
+		svg.setAttribute('aria-hidden', 'true');
+		svg.style.display = 'block';
+		svg.style.transition = 'transform 0.2s ease';
+		svg.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(-90deg)';
+		svg.innerHTML = '<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>';
+		return svg;
+	}
+
+	let activeDraggedConvoItem = null;
+
+	document.addEventListener('dragstart', (e) => {
+		const item = e.target.closest(FOLDER_CHAT_ITEM_SELECTOR) || e.target.closest('.conversation-items-container');
+		if (item) {
+			activeDraggedConvoItem = item;
+			if (e.dataTransfer) {
+				e.dataTransfer.setData('text/plain', getConversationId(item) || '');
+				e.dataTransfer.effectAllowed = 'move';
+			}
+		}
+	}, true);
+
+	document.addEventListener('dragend', () => {
+		setTimeout(() => { activeDraggedConvoItem = null; }, 100);
+		document.querySelectorAll('.folder-header.folder-drag-over, .folder.folder-drag-over').forEach(el => {
+			el.classList.remove('folder-drag-over');
+		});
+	}, true);
+
 	function renderFolders() {
 		const container = document.getElementById('folder-ui-container');
 		if (!container) return;
@@ -1119,18 +1548,12 @@
 		sectionLabel.textContent = 'Folders';
 		if (headerScope) sectionLabel.setAttribute(headerScope, '');
 
-		// Use gem-icon for the chevron exactly like native
-		const sectionChevron = document.createElement('gem-icon');
+		// Use toggle-icon with SVG chevron
+		const sectionChevron = document.createElement('span');
 		sectionChevron.className = 'toggle-icon';
 		sectionChevron.setAttribute('data-test-id', 'expandable-section-toggle-icon');
 		if (headerScope) sectionChevron.setAttribute(headerScope, '');
-
-		const chevronIcon = document.createElement('mat-icon');
-		chevronIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color';
-		chevronIcon.setAttribute('role', 'img');
-		chevronIcon.setAttribute('aria-hidden', 'true');
-		chevronIcon.textContent = isSectionOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_right';
-		sectionChevron.appendChild(chevronIcon);
+		sectionChevron.appendChild(createChevronSvg(isSectionOpen));
 
 		sectionHeader.appendChild(sectionLabel);
 		sectionHeader.appendChild(sectionChevron);
@@ -1149,9 +1572,6 @@
 		}
 
 		// Inner container for folders (this gets collapsed)
-		// We intentionally do NOT use the native 'expandable-section-content' class here:
-		// Chrome's Gemini applies its own Angular scoped styles to that class which can
-		// override our max-height transitions. Inline styles always win the cascade.
 		folderWrapper = document.createElement('div');
 		folderWrapper.id = 'folder-section-body';
 		folderWrapper.style.display = 'block';
@@ -1162,15 +1582,13 @@
 		container.appendChild(folderWrapper);
 
 		sectionHeader.addEventListener('click', async () => {
-			// nowCollapsed = true means 'collapsed' class was just ADDED (section is closing)
 			const nowCollapsed = sectionHeader.classList.toggle('collapsed');
 			sectionHeader.setAttribute('aria-expanded', nowCollapsed ? 'false' : 'true');
 
-			// Use inline style for max-height: immune to CSS specificity and CDN cache issues
 			folderWrapper.style.maxHeight = nowCollapsed ? '0px' : '2000px';
 
-			const newChevron = nowCollapsed ? 'keyboard_arrow_right' : 'keyboard_arrow_down';
-			chevronIcon.textContent = newChevron;
+			const svg = sectionChevron.querySelector('svg');
+			if (svg) svg.style.transform = nowCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
 			await GM_setValue(STORAGE_KEY_SECTION_OPEN, !nowCollapsed);
 		});
 
@@ -1264,21 +1682,93 @@
 		});
 		controls.appendChild(settingsBtn);
 
-		const toggleIcon = document.createElement('mat-icon');
-		toggleIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color folder-toggle-icon';
-		toggleIcon.textContent = folder.isOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_right';
+		const toggleIcon = document.createElement('span');
+		toggleIcon.className = 'folder-toggle-icon';
+		toggleIcon.appendChild(createChevronSvg(folder.isOpen));
 		controls.appendChild(toggleIcon);
 
 		header.appendChild(controls);
 
-		header.addEventListener('click', () => {
+		header.addEventListener('click', async () => {
 			folder.isOpen = !folder.isOpen;
 			folderDiv.classList.toggle('closed', !folder.isOpen);
 			const newIcon = folder.isOpen ? 'folder_open' : 'folder';
 			matIcon.textContent = newIcon;
-			toggleIcon.textContent = folder.isOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_right';
-			saveFolderConfiguration();
+			const svg = toggleIcon.querySelector('svg');
+			if (svg) svg.style.transform = folder.isOpen ? 'rotate(0deg)' : 'rotate(-90deg)';
+			await saveFolderConfiguration();
 		});
+
+		// Drag & drop onto folder header (allows dropping to closed folder or open folder)
+		let autoOpenTimer = null;
+
+		function handleDragOver(e) {
+			if (!activeDraggedConvoItem) return;
+			e.preventDefault();
+			e.stopPropagation();
+			if (e.dataTransfer) {
+				e.dataTransfer.dropEffect = 'move';
+			}
+			header.classList.add('folder-drag-over');
+
+			const isClosed = folderDiv.classList.contains('closed') || !folder.isOpen;
+			if (isClosed && !autoOpenTimer) {
+				autoOpenTimer = setTimeout(async () => {
+					if (folderDiv.classList.contains('closed') || !folder.isOpen) {
+						folder.isOpen = true;
+						folderDiv.classList.remove('closed');
+						matIcon.textContent = 'folder_open';
+						const svg = toggleIcon.querySelector('svg');
+						if (svg) svg.style.transform = 'rotate(0deg)';
+						await saveFolderConfiguration();
+					}
+				}, 500);
+			}
+		}
+
+		function handleDragLeave(e) {
+			if (!header.contains(e.relatedTarget) && !folderDiv.contains(e.relatedTarget)) {
+				header.classList.remove('folder-drag-over');
+				if (autoOpenTimer) {
+					clearTimeout(autoOpenTimer);
+					autoOpenTimer = null;
+				}
+			}
+		}
+
+		async function handleDrop(e) {
+			if (!activeDraggedConvoItem) return;
+			e.preventDefault();
+			e.stopPropagation();
+			header.classList.remove('folder-drag-over');
+			if (autoOpenTimer) {
+				clearTimeout(autoOpenTimer);
+				autoOpenTimer = null;
+			}
+
+			const item = activeDraggedConvoItem;
+			const convoId = getConversationId(item);
+			if (convoId) {
+				conversationFolders[convoId] = folder.id;
+				await saveFolderConfiguration();
+			}
+
+			contentDiv.appendChild(item);
+
+			if (folderDiv.classList.contains('closed') || !folder.isOpen) {
+				folder.isOpen = true;
+				folderDiv.classList.remove('closed');
+				matIcon.textContent = 'folder_open';
+				const svg = toggleIcon.querySelector('svg');
+				if (svg) svg.style.transform = 'rotate(0deg)';
+				await saveFolderConfiguration();
+			}
+		}
+
+		header.addEventListener('dragenter', handleDragOver);
+		header.addEventListener('dragover', handleDragOver);
+		header.addEventListener('dragleave', handleDragLeave);
+		header.addEventListener('drop', handleDrop);
 
 		folderDiv.appendChild(header);
 
@@ -1286,16 +1776,21 @@
 		contentDiv.className = 'folder-content';
 		// Populate content
 		const convoIds = Object.keys(conversationFolders).filter(k => conversationFolders[k] === folder.id);
-		// Note: Actual conversation DOM elements are moved here by processConversationItems logic
-		// We set a data attributes to help the processor know this is a drop target
 		contentDiv.dataset.folderId = folder.id;
 
 		folderDiv.appendChild(contentDiv);
 
 		// Initialize Sortable for dragging conversations INTO this folder
 		new Sortable(contentDiv, {
-			group: 'conversations', // Share group with main list if possible, or just other folders
+			group: 'conversations',
 			animation: 150,
+			onStart: (evt) => {
+				activeDraggedConvoItem = evt.item;
+			},
+			onEnd: () => {
+				setTimeout(() => { activeDraggedConvoItem = null; }, 100);
+				document.querySelectorAll('.folder-header.folder-drag-over').forEach(el => el.classList.remove('folder-drag-over'));
+			},
 			onAdd: async (evt) => {
 				const item = evt.item;
 				const convoId = getConversationId(item);
@@ -1443,6 +1938,13 @@
 			new Sortable(mainList, {
 				group: 'conversations',
 				animation: 150,
+				onStart: (evt) => {
+					activeDraggedConvoItem = evt.item;
+				},
+				onEnd: () => {
+					setTimeout(() => { activeDraggedConvoItem = null; }, 100);
+					document.querySelectorAll('.folder-header.folder-drag-over').forEach(el => el.classList.remove('folder-drag-over'));
+				},
 				onAdd: async (evt) => {
 					// Item dragged BACK to main list
 					const item = evt.item;
@@ -1703,10 +2205,22 @@
 			try {
 				createToolbar();
 				createSettingsPanel();
-				// Start folder initialization loop
-				const folderInitInterval = setInterval(() => {
+				// Start folder initialization loop with backoff
+				let attempts = 0;
+				let folderInitInterval = setInterval(() => {
+					attempts++;
 					if (initializeFolders()) {
 						clearInterval(folderInitInterval);
+						console.log("Gemini Mod Userscript: Folders Initialized.");
+					} else if (attempts === 60) {
+						// After 30s, back off to 2500ms intervals instead of spinning at 500ms
+						clearInterval(folderInitInterval);
+						folderInitInterval = setInterval(() => {
+							if (initializeFolders()) {
+								clearInterval(folderInitInterval);
+								console.log("Gemini Mod Userscript: Folders Initialized (delayed).");
+							}
+						}, 2500);
 					}
 				}, 500);
 			} catch (e) {

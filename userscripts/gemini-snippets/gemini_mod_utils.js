@@ -152,42 +152,5 @@ window.GeminiMod.utils = {
             style.textContent = window.GeminiMod.styles;
             document.head.appendChild(style);
         }
-    },
-
-    /**
-     * Attempts to retrieve the internal React props of a DOM element.
-     * Useful for extracting data from virtualized components like Monaco Editor.
-     */
-    getReactProps: function (element) {
-        if (!element) return null;
-
-        // Firefox/Greasemonkey Xray Wrapper Handling
-        // If the object is wrapped, we need to access the raw object to see 'expando' properties like __reactProps
-        let target = element;
-        // Check if wrappedJSObject exists (Firefox/Gecko specific)
-        if (typeof element.wrappedJSObject !== 'undefined') {
-            target = element.wrappedJSObject;
-        }
-
-        // Use Object.keys on the target (raw or wrapped)
-        const keys = Object.keys(target);
-
-        // 1. Check for standard Props key
-        let key = keys.find(k => k.startsWith('__reactProps'));
-        if (key) return target[key];
-
-        // 2. Check for Fiber key (internal React state)
-        key = keys.find(k => k.startsWith('__reactFiber'));
-        if (key && target[key]) return target[key].memoizedProps;
-
-        return null;
-    },
-
-    /**
-     * Safely accesses a property path on an object (like lodash.get).
-     */
-    getClassProperty: function (obj, prop) {
-        if (!obj) return null;
-        return prop.split('.').reduce((o, i) => (o ? o[i] : null), obj);
     }
 };
