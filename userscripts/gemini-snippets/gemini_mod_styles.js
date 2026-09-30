@@ -98,96 +98,204 @@ window.GeminiMod.styles = `
         margin: 0 !important;
         padding: 0;
         font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
+        box-sizing: border-box;
     }
 
     /* --- Section header: matches "Notebooks" style --- */
-    /* Explicit layout required: Angular-scoped .expandable-section-header styles
-       only apply to elements with matching _ngcontent-* attributes. Our injected
-       button lacks those, so Chrome falls back to default button styles. */
     #folder-section-header {
         display: flex;
         flex-direction: row;
         align-items: center;
-        width: 100%;
-        box-sizing: border-box;
-        padding: 0 16px;
-        min-height: 36px;
-        background: transparent;
-        border: none;
+        justify-content: space-between;
+        width: calc(100% - 16px) !important;
+        margin: 2px 8px !important;
+        box-sizing: border-box !important;
+        padding: 0 12px !important;
+        min-height: 36px !important;
+        background: transparent !important;
+        border: none !important;
+        border-radius: 9999px !important;
         cursor: pointer;
         text-align: left;
-        color: inherit;
+        color: #c4c7c5 !important;
         font-family: inherit;
-        margin: 0;
         gap: 8px;
+        transition: background-color 0.15s ease, color 0.15s ease;
+        outline: none;
     }
     #folder-section-header:hover {
-        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(227, 227, 227, 0.08));
+        background-color: rgba(227, 227, 227, 0.08) !important;
+        color: #e3e3e3 !important;
     }
     #folder-section-header .expandable-section-title {
         flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1.25rem;
     }
-    /* #folder-section-body collapse is controlled via inline style.maxHeight in JS.
-       This avoids specificity conflicts with Gemini's own Angular-scoped CSS in Chrome. */
+    #folder-section-header .toggle-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-left: auto;
+        color: #c4c7c5;
+        font-size: 18px;
+    }
+    #folder-section-header:hover .toggle-icon {
+        color: #e3e3e3;
+    }
     
     /* Folder Items & Add Button */
     #folder-container { padding-bottom: 4px; }
     
-    #add-folder-btn, .folder-header {
-        display: flex; flex-direction: row; align-items: center; justify-content: flex-start;
-        width: 100%; box-sizing: border-box;
-        padding: 0 16px; min-height: 36px;
-        background: transparent; border: none; color: inherit;
-        border-radius: 9999px; cursor: pointer; text-align: left;
-        position: relative;
+    #add-folder-btn {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        width: calc(100% - 16px) !important;
+        margin: 2px 8px !important;
+        box-sizing: border-box !important;
+        padding: 0 12px !important;
+        min-height: 36px !important;
+        background: transparent !important;
+        border: none !important;
+        color: #c4c7c5 !important;
+        border-radius: 9999px !important;
+        cursor: pointer;
+        text-align: left;
+        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
+        font-size: 0.875rem;
+        font-weight: 400;
+        gap: 0 !important;
+        transition: background-color 0.15s ease, color 0.15s ease;
+        outline: none;
     }
-    #add-folder-btn:hover, .folder-header:hover {
-        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(227, 227, 227, 0.08)) !important;
+    #add-folder-btn::before { content: none !important; }
+    #add-folder-btn:hover {
+        background-color: rgba(227, 227, 227, 0.08) !important;
+        color: #e3e3e3 !important;
     }
     
     .add-folder-icon, .folder-icon-wrapper { 
-        margin-right: 12px; display: flex; align-items: center; justify-content: center;
+        margin-right: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
     }
 
     /* Folder Specific */
     .folder { margin: 0; padding: 0; overflow: visible; }
-    .folder-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 0; padding-right: 28px; }
-
-    /* Second rule intentionally removed — it was overriding display:none above with display:flex */
-    .folder-controls { position: absolute; right: 12px; display: none; align-items: center; gap: 4px; flex-shrink: 0; z-index: 10; }
-    .folder:hover .folder-controls { display: flex; }
-    .folder-controls button {
-        background: transparent !important; color: #a8c7fa !important; border: none; font-size: 14px;
-        cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: background-color 0.2s;
+    .folder-header {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        width: calc(100% - 16px) !important;
+        margin: 2px 8px !important;
+        box-sizing: border-box !important;
+        padding: 0 12px !important;
+        min-height: 36px !important;
+        background: transparent !important;
+        border: none !important;
+        color: #e3e3e3 !important;
+        border-radius: 9999px !important;
+        cursor: pointer;
+        text-align: left;
+        position: relative;
+        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
+        font-size: 0.875rem;
+        transition: background-color 0.15s ease;
+        outline: none;
     }
-    .folder-toggle-icon { transition: transform 0.2s; font-size: 0.7em; opacity: 0.6; color: #c4c7c5; }
-    .folder.closed .folder-toggle-icon { transform: rotate(-90deg); }
+    .folder-header:hover {
+        background-color: rgba(227, 227, 227, 0.08) !important;
+    }
+    .folder-name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-left: 0;
+        padding-right: 8px;
+        font-size: 0.875rem;
+    }
+
+    .folder-controls {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+        margin-left: auto;
+    }
     .folder-options-btn {
-        background: none; border: none; color: #c4c7c5; cursor: pointer;
-        padding: 4px; border-radius: 50%; width: 28px; height: 28px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.1em; line-height: 1;
+        background: none !important;
+        border: none !important;
+        color: #c4c7c5 !important;
+        cursor: pointer;
+        padding: 0;
+        border-radius: 50% !important;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1em;
+        line-height: 1;
         opacity: 0;
         transition: opacity 0.15s, background-color 0.15s;
     }
-    .folder-header:hover .folder-options-btn { opacity: 1; }
-    .folder-options-btn:hover { background-color: rgba(227, 227, 227, 0.12); }
+    .folder-header:hover .folder-options-btn {
+        opacity: 1;
+    }
+    .folder-options-btn:hover {
+        background-color: rgba(227, 227, 227, 0.12) !important;
+        color: #fff !important;
+    }
+
+    .folder-toggle-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        transition: transform 0.2s;
+        color: #c4c7c5;
+        font-size: 16px;
+    }
+    .folder.closed .folder-toggle-icon {
+        transform: rotate(-90deg);
+    }
+    .folder-header:hover .folder-toggle-icon {
+        color: #e3e3e3;
+    }
 
     /* Folder content area - items inside */
     .folder-content {
-        min-height: 0;        /* prevent phantom height when empty */
-        max-height: 600px;
+        min-height: 0;
+        max-height: 2000px;
         overflow: hidden;
         transition: max-height 0.25s ease-in-out;
     }
-    .folder.closed .folder-content { max-height: 0; }
+    .folder.closed .folder-content {
+        max-height: 0;
+    }
 
     /* Chat items inside folders - match gem-nav-list-item look */
     .folder-content .conversation-items-container,
     .folder-content gem-nav-list-item {
         display: block;
-        border-radius: 9999px;
-        margin: 0 8px;
+        border-radius: 9999px !important;
+        margin: 2px 8px !important;
+        width: calc(100% - 16px) !important;
+        box-sizing: border-box !important;
         padding: 0;
         border: none;
         transition: background-color 0.15s;
@@ -199,24 +307,8 @@ window.GeminiMod.styles = `
     }
     .folder-content .conversation-items-container:hover,
     .folder-content gem-nav-list-item:hover {
-        background-color: var(--mat-list-list-item-hover-state-layer-color, rgba(227, 227, 227, 0.08));
+        background-color: rgba(227, 227, 227, 0.08) !important;
     }
-
-    /* "New Folder" button matching Gemini's nav style */
-    #add-folder-btn {
-        /* calc(100% - 16px) so 8px left+right margin doesn't make the button
-           wider than its container, which would visually off-center the content */
-        width: calc(100% - 16px) !important;
-        margin: 2px 8px !important;
-        color: #c4c7c5;
-        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
-        font-size: 0.875rem;
-        font-weight: 400;
-        gap: 0 !important;
-    }
-    /* Remove pseudo element '+', we use mat-icon 'add' now */
-    #add-folder-btn::before { content: none !important; }
-    #add-folder-btn:hover { background-color: color-mix(in srgb, #e3e3e3 8%, transparent); color: #e3e3e3; }
 
     .conversation-items-container, gem-nav-list-item { cursor: grab; }
 

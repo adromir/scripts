@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.26
+// @version       0.0.27
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -954,48 +954,126 @@
 
 	// --- Folder Logic ---
 
-	function initializeFolders() {
-		const foldersContainerId = 'folder-ui-container';
-		if (document.getElementById(foldersContainerId)) return true; // Already initialized
+	function findSidebarSections() {
+		let notebooksSection = null;
 
-		// Find insertion target: chat header or conversations list / section
-		let recentHeader = document.querySelector('#sidenav-section-header-chats, [aria-controls="sidenav-section-content-chats"]');
-		if (!recentHeader) {
-			const headers = document.querySelectorAll('button.expandable-section-header, div.expandable-section-header, .expandable-section-header');
-			if (headers.length >= 2) {
-				recentHeader = headers[1];
-			} else if (headers.length === 1) {
-				recentHeader = headers[0];
+		// 1. Search for Notebooks section container
+		const allHeaders = document.querySelectorAll('.expandable-section-header, button[aria-controls], [data-test-id*="section"]');
+		for (const h of allHeaders) {
+			const text = (h.textContent || '').trim().toLowerCase();
+			if (text.includes('notebook') && !h.closest('#folder-ui-container')) {
+				notebooksSection = h.closest('expandable-section, .expandable-section') || h.parentElement;
+				break;
 			}
 		}
 
-		if (!recentHeader) {
-			// Fallback: look for conversations-list or sidenav chats section
-			const fallbackList = document.querySelector('conversations-list, #sidenav-section-content-chats, mat-nav-list, gem-nav-list, .conversations-list');
-			if (!fallbackList) return false;
-			recentHeader = fallbackList;
+		if (!notebooksSection) {
+			const notebookBtn = document.querySelector('a[href*="notebook"], button[aria-label*="Notebook"], [data-test-id*="notebook"]');
+			if (notebookBtn && !notebookBtn.closest('#folder-ui-container')) {
+				notebooksSection = notebookBtn.closest('expandable-section, .expandable-section, mat-nav-list, .section') || notebookBtn.parentElement;
+			}
 		}
 
-		// Use a plain div instead of the native <expandable-section> custom element.
-		// In Chrome, Angular registers expandable-section with Shadow DOM encapsulation,
-		// which hijacks our manually-appended children and breaks collapse/expand.
-		// A div with the matching CSS class inherits the correct styles without interference.
-		const container = document.createElement('div');
-		container.setAttribute('storagekey', 'folders-mod');
-		container.id = foldersContainerId;
-		// Insert before the recent header
-		recentHeader.parentNode.insertBefore(container, recentHeader);
-		renderFolders();
+		// 2. Search for Recent chats section container
+		let recentSection = null;
+		const chatHeader = document.querySelector('#sidenav-section-header-chats, [aria-controls="sidenav-section-content-chats"]');
+		if (chatHeader) {
+			recentSection = chatHeader.closest('expandable-section, .expandable-section') || chatHeader;
+		}
+
+		if (!recentSection) {
+			const convoList = document.querySelector('conversations-list, #sidenav-section-content-chats');
+			if (convoList) {
+				recentSection = convoList.closest('expandable-section, .expandable-section') || convoList;
+			}
+		}
+
+		if (!recentSection) {
+			for (const h of allHeaders) {
+				const text = (h.textContent || '').trim().toLowerCase();
+				if ((text.includes('letzte') || text.includes('recent') || text.includes('unterhaltungen')) && !h.closest('#folder-ui-container')) {
+					recentSection = h.closest('expandable-section, .expandable-section') || h;
+					break;
+				}
+			}
+		}
+
+		return { notebooksSection, recentSection };
+	}
+
+	function positionFolderContainer(container) {
+		if (!container) return false;
+		const { notebooksSection, recentSection } = findSidebarSections();
+
+		// Priority 1: Insert immediately AFTER the Notebooks section
+		if (notebooksSection && notebooksSection.parentNode) {
+			const parent = notebooksSection.parentNode;
+			const targetNext = notebooksSection.nextSibling;
+			if (container.parentNode !== parent || container.previousSibling !== notebooksSection) {
+				parent.insertBefore(container, targetNext);
+				console.log("Gemini Mod: Positioned folders container after Notebooks section.");
+			}
+			return true;
+		}
+
+		// Priority 2: Insert immediately BEFORE the Recent chats section
+		if (recentSection && recentSection.parentNode) {
+			const parent = recentSection.parentNode;
+			if (container.parentNode !== parent || container.nextSibling !== recentSection) {
+				parent.insertBefore(container, recentSection);
+				console.log("Gemini Mod: Positioned folders container before Recent section.");
+			}
+			return true;
+		}
+
+		return false;
+	}
+
+	function initializeFolders() {
+		const foldersContainerId = 'folder-ui-container';
+		let container = document.getElementById(foldersContainerId);
+
+		if (!container) {
+			container = document.createElement('div');
+			container.setAttribute('storagekey', 'folders-mod');
+			container.id = foldersContainerId;
+		}
+
+		const positioned = positionFolderContainer(container);
+		if (!positioned) {
+			return false; // Wait until Notebooks or Recent section is available
+		}
+
+		if (!container.hasChildNodes()) {
+			renderFolders();
+		}
 
 		// Observe chat list changes to identify new conversations
 		const chatHistoryList = document.querySelector('conversations-list, #sidenav-section-content-chats, mat-nav-list, gem-nav-list, .conversations-list');
-		if (chatHistoryList) {
+		if (chatHistoryList && !chatHistoryList.dataset.geminiModObserved) {
+			chatHistoryList.dataset.geminiModObserved = 'true';
+			let debounceTimer = null;
 			const observer = new MutationObserver(() => {
-				processConversationItems(chatHistoryList);
+				clearTimeout(debounceTimer);
+				debounceTimer = setTimeout(() => {
+					processConversationItems(chatHistoryList);
+					positionFolderContainer(container);
+				}, 100);
 			});
 			observer.observe(chatHistoryList, { childList: true, subtree: true });
 			processConversationItems(chatHistoryList);
 		}
+
+		// Observe sidebar parent to ensure folders STAY positioned after Notebooks
+		const sidebarParent = container.parentElement;
+		if (sidebarParent && !sidebarParent.dataset.geminiModPosObserved) {
+			sidebarParent.dataset.geminiModPosObserved = 'true';
+			const posObserver = new MutationObserver(() => {
+				positionFolderContainer(container);
+			});
+			posObserver.observe(sidebarParent, { childList: true });
+		}
+
 		return true;
 	}
 
@@ -1186,9 +1264,9 @@
 		});
 		controls.appendChild(settingsBtn);
 
-		const toggleIcon = document.createElement('span');
-		toggleIcon.className = 'folder-toggle-icon';
-		toggleIcon.textContent = '▼';
+		const toggleIcon = document.createElement('mat-icon');
+		toggleIcon.className = 'mat-icon notranslate lm-icon-s lumi-symbols mat-ligature-font mat-icon-no-color folder-toggle-icon';
+		toggleIcon.textContent = folder.isOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_right';
 		controls.appendChild(toggleIcon);
 
 		header.appendChild(controls);
@@ -1198,6 +1276,7 @@
 			folderDiv.classList.toggle('closed', !folder.isOpen);
 			const newIcon = folder.isOpen ? 'folder_open' : 'folder';
 			matIcon.textContent = newIcon;
+			toggleIcon.textContent = folder.isOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_right';
 			saveFolderConfiguration();
 		});
 
