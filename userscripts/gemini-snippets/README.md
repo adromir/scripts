@@ -14,9 +14,9 @@ This UserScript enhances the Google Gemini web interface (`gemini.google.com`) b
 
 * **📌 Fixed, Centered Toolbar:** Persistent access to your tools at the top-center of the interface.
 * **📂 Sidebar Folders:** Organize conversations into collapsible, color-coded folders via Drag & Drop.
-* **☁️ Google Drive Sync:** Sync your settings, snippets, and folders across devices using your own private Google Drive storage.
+* **☁️ Cloud Sync (Supabase):** Seamlessly synchronize your settings, snippets, folders, and conversation mappings across browsers and between the Userscript and the Ferdium Recipe with hardened multi-user authentication.
 * **💾 Manual Backup:** Export your configuration to a `.json` file and restore it anywhere, anytime.
-* **⚙️ Tabbed Settings Panel:** intuitive interface to manage Toolbar items, Drive Sync, and reset options.
+* **⚙️ Tabbed Settings Panel:** intuitive interface to manage Toolbar items, Cloud Sync, and Danger Zone reset options.
 * **⚡ Quick Snippets:** Define buttons for frequent prompts.
 * **📚 Dropdown Menus:** Categorize snippets (e.g., "Coding", "Writing").
 * **📋 Clipboard Integration:** Paste clipboard content instantly.
@@ -36,7 +36,7 @@ This UserScript enhances the Google Gemini web interface (`gemini.google.com`) b
     *   Or install from Greasy Fork / OpenUserJS.
 
 3.  **Permissions:**
-    *   The script requires `GM_xmlhttpRequest` for Google Drive integration.
+    *   The script requires `GM_xmlhttpRequest` for Cloud Synchronization.
     *   It requires access to `gemini.google.com`.
 
 4.  **Refresh Gemini:**
@@ -46,19 +46,23 @@ This UserScript enhances the Google Gemini web interface (`gemini.google.com`) b
 
 ## ⚙️ Configuration
 
-Open the **⚙️ Settings** from the toolbar to access the new tabbed capabilities:
+Open the **⚙️ Settings** from the toolbar to access the tabbed capabilities:
 
 ### 🛠️ Toolbar Tab
 *   **Add/Edit/Remove:** Manage buttons and dropdowns.
 *   **Reorder:** Drag and drop items to arrange them.
 *   **Visibility:** Toggle items on or off without deleting them.
 
-### ☁️ Sync Tab (New!)
-*   **Google Drive:** Connect your Google account to sync settings automatically.
-    *   *Note: Requires a personal Google Cloud Client ID for security. Click the book icon 📖 in settings for a guide.*
+### ☁️ Cloud Sync Tab
+*   **Secure Supabase Synchronization:**
+    *   **Multi-User Protection:** Individual user accounts powered by Supabase Auth with Row-Level Security (RLS). Anonymous users have 0 access; your configuration is strictly isolated.
+    *   **Instant Sign Up & Log In:** Enter your email and password to create an account or sign in directly from the settings panel.
+    *   **Cross-App Sync:** Log in with the same credentials in both your Browser Userscript and the Ferdium Recipe (`google-gemini-mod`) to keep folders, toolbars, and chats in sync.
+    *   **☁️ Upload to Cloud:** Push your current toolbar items and folders to Supabase.
+    *   **☁️ Download from Cloud:** Pull settings and apply them with one click.
 *   **Manual Backup:**
-    *   **⬇️ Export:** Save everything to a JSON file.
-    *   **⬆️ Import:** Restore settings from a file instantly.
+    *   **⬇️ Export to File:** Save your complete configuration to a local `.json` file.
+    *   **⬆️ Import from File:** Restore settings from a local `.json` file instantly.
 
 ### ⚠️ Reset Tab
 *   **Reset Folders:** Clear folder structure only.

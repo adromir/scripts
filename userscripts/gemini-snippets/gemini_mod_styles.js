@@ -65,7 +65,7 @@ window.GeminiMod.styles = `
     #gemini-mod-settings-panel h2 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px; }
     #gemini-mod-settings-panel h3 { margin-top: 20px; border-bottom: 1px solid #444; padding-bottom: 8px; }
     #gemini-mod-settings-panel label { display: block; margin: 10px 0 5px; font-weight: 500; }
-    #gemini-mod-settings-panel input[type="text"], #gemini-mod-settings-panel textarea {
+    #gemini-mod-settings-panel input[type="text"], #gemini-mod-settings-panel input[type="email"], #gemini-mod-settings-panel input[type="password"], #gemini-mod-settings-panel textarea {
         width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #5f6368;
         background-color: #202122; color: #e3e3e3; box-sizing: border-box;
     }
@@ -394,4 +394,30 @@ window.GeminiMod.styles = `
     /* Help Link */
     .help-link { font-size: 12px; color: #8ab4f8; text-decoration: none; margin-left: 5px; display: inline-flex; align-items: center; }
     .help-link:hover { text-decoration: underline; }
+
+    /* Sync tab UI */
+    .sync-status-card {
+        background: #1e2022; border: 1px solid #3c4043; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px;
+    }
+    .sync-status-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .sync-status-detail { font-size: 12px; color: #aaa; margin: 0; }
+    .sync-user-card {
+        display: flex; align-items: center; justify-content: space-between;
+        background: #2a2d30; border: 1px solid #3c4043; border-radius: 8px;
+        padding: 10px 14px; margin-bottom: 14px;
+    }
+    .sync-user-info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #e3e3e3; font-weight: 500; }
+    .sync-auth-box {
+        background: #1e2022; border: 1px solid #3c4043; border-radius: 8px;
+        padding: 14px; margin-bottom: 16px;
+    }
+    .sync-auth-notice { font-size: 12px; color: #8ab4f8; margin: 0 0 12px 0; line-height: 1.4; }
+    .sync-auth-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+    .sync-auth-btns { display: flex; gap: 10px; margin-top: 12px; }
+    .sync-key-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .sync-actions-box { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; margin-bottom: 24px; }
+    .sync-btn-primary { background-color: #8ab4f8 !important; color: #1f1f1f !important; font-weight: 600 !important; }
+    .sync-btn-primary:hover { background-color: #aecbfa !important; }
+    .sync-advanced-details { margin-top: 20px; border-top: 1px solid #444; padding-top: 15px; }
+    .sync-advanced-details summary { cursor: pointer; color: #8ab4f8; font-size: 13px; user-select: none; }
 `;

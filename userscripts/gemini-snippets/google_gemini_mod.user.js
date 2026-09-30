@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.30
+// @version       0.0.31
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -20,7 +20,6 @@
 // @require       https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js
 // @require       https://update.greasyfork.org/scripts/584958/gemini_mod_styles.js
 // @require       https://update.greasyfork.org/scripts/584959/gemini_mod_utils.js
-// @require       https://update.greasyfork.org/scripts/584956/gemini_mod_drivejs.js
 // @downloadURL   https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // @updateURL     https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // ==/UserScript==
@@ -31,398 +30,7 @@
 	// Ensure Namespace exists
 	window.GeminiMod = window.GeminiMod || {};
 
-	// Embedded styles to guarantee instant updates and protect against stale CDN caches
-	window.GeminiMod.styles = `
-    /* --- Toolbar Styles --- */
-    #gemini-snippet-toolbar-userscript {
-        position: fixed !important; top: 0 !important; left: 50% !important;
-        transform: translateX(-50%) !important;
-        width: auto !important; max-width: 80% !important;
-        padding: 10px 15px !important; z-index: 999998 !important; /* Below settings panel */
-        display: flex !important; flex-wrap: wrap !important;
-        gap: 8px !important; align-items: center !important; font-family: 'Roboto', 'Arial', sans-serif !important;
-        box-sizing: border-box !important; background-color: rgba(40, 42, 44, 0.95) !important;
-        border-radius: 0 0 16px 16px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-    }
-    #gemini-snippet-toolbar-userscript button,
-    #gemini-snippet-toolbar-userscript select {
-        padding: 4px 10px !important; cursor: pointer !important; background-color: #202122 !important;
-        color: #e3e3e3 !important; border-radius: 16px !important; font-size: 13px !important;
-        font-family: inherit !important; font-weight: 500 !important; height: 28px !important;
-        box-sizing: border-box !important; vertical-align: middle !important;
-        transition: background-color 0.2s ease, transform 0.1s ease !important;
-        border: none !important; flex-shrink: 0;
-    }
-    #gemini-snippet-toolbar-userscript select {
-        padding-right: 25px !important; appearance: none !important;
-        background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="%23e3e3e3" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>') !important;
-        background-repeat: no-repeat !important; background-position: right 8px center !important; background-size: 12px 12px !important;
-    }
-    #gemini-snippet-toolbar-userscript option {
-        background-color: #2a2a2a !important; color: #e3e3e3 !important;
-        font-weight: normal !important; padding: 5px 10px !important;
-    }
-    #gemini-snippet-toolbar-userscript button:hover,
-    #gemini-snippet-toolbar-userscript select:hover { background-color: #4a4e51 !important; }
-    #gemini-snippet-toolbar-userscript button:active { background-color: #5f6368 !important; transform: scale(0.98) !important; }
-    .userscript-toolbar-spacer { margin-left: auto !important; }
-
-    /* --- Settings Panel & Modal Styles --- */
-    #gemini-mod-settings-overlay, #gemini-mod-type-modal-overlay {
-        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background-color: rgba(0,0,0,0.6); z-index: 999999;
-    }
-    #gemini-mod-settings-panel, #gemini-mod-type-modal {
-        position: fixed; top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        background-color: #282a2c; color: #e3e3e3; border-radius: 16px;
-        padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-        font-family: 'Roboto', 'Arial', sans-serif !important;
-    }
-    #gemini-mod-settings-panel {
-        width: 90vw; max-width: 800px; max-height: 80vh; overflow-y: auto;
-    }
-    #gemini-mod-type-modal {
-        text-align: center;
-    }
-    #gemini-mod-type-modal h3 { margin-top: 0; }
-    #gemini-mod-type-modal button { margin: 0 10px; }
-    #gemini-mod-settings-panel h2 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px; }
-    #gemini-mod-settings-panel h3 { margin-top: 20px; border-bottom: 1px solid #444; padding-bottom: 8px; }
-    #gemini-mod-settings-panel label { display: block; margin: 10px 0 5px; font-weight: 500; }
-    #gemini-mod-settings-panel input[type="text"], #gemini-mod-settings-panel textarea {
-        width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #5f6368;
-        background-color: #202122; color: #e3e3e3; box-sizing: border-box;
-    }
-    #gemini-mod-settings-panel textarea { min-height: 80px; resize: vertical; }
-    #gemini-mod-settings-panel .item-group {
-        border: 1px solid #444; border-radius: 8px; padding: 15px; margin-bottom: 10px;
-        display: flex; gap: 10px; align-items: flex-start;
-        cursor: grab;
-    }
-    #gemini-mod-settings-panel .item-content { flex-grow: 1; }
-    #gemini-mod-settings-panel .dropdown-options-container { margin-left: 20px; margin-top: 10px; }
-    #gemini-mod-settings-panel .option-item { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: center; margin-bottom: 5px; }
-    #gemini-mod-settings-panel button {
-            padding: 4px 10px !important; cursor: pointer !important; background-color: #3c4043 !important;
-            color: #e3e3e3 !important; border-radius: 16px !important; font-size: 13px !important;
-            border: none !important; transition: background-color 0.2s ease;
-    }
-    #gemini-mod-settings-panel button:hover { background-color: #4a4e51 !important; }
-    #gemini-mod-settings-panel .remove-btn, .dialog-btn-delete { background-color: #5c2b2b !important; color: white !important; }
-    #gemini-mod-settings-panel .remove-btn:hover, .dialog-btn-delete:hover { background-color: #7d3a3a !important; }
-    #gemini-mod-settings-panel .settings-actions {
-        margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px;
-    }
-
-    /* --- Folder UI Styles --- */
-    /* Match Gemini sidebar design: Google Sans font, Material colors, proper spacing */
-    #folder-ui-container {
-        display: block;
-        width: 100%;
-        margin: 0 !important;
-        padding: 0;
-        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
-        box-sizing: border-box;
-    }
-
-    /* --- Section header: matches "Notebooks" style --- */
-    #folder-section-header {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
-        width: calc(100% - 16px) !important;
-        margin: 2px 8px !important;
-        box-sizing: border-box !important;
-        padding: 0 12px !important;
-        min-height: 36px !important;
-        background: transparent !important;
-        border: none !important;
-        border-radius: 9999px !important;
-        cursor: pointer;
-        text-align: left;
-        color: #c4c7c5 !important;
-        font-family: inherit;
-        gap: 8px;
-        transition: background-color 0.15s ease, color 0.15s ease;
-        outline: none;
-    }
-    #folder-section-header:hover {
-        background-color: rgba(227, 227, 227, 0.08) !important;
-        color: #e3e3e3 !important;
-    }
-    #folder-section-header .expandable-section-title {
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        font-size: 0.875rem;
-        font-weight: 500;
-        line-height: 1.25rem;
-    }
-    #folder-section-header .toggle-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 20px;
-        height: 20px;
-        flex-shrink: 0;
-        margin-left: auto;
-        color: #c4c7c5;
-        transition: color 0.15s ease;
-    }
-    #folder-section-header .toggle-icon svg {
-        display: block;
-        transition: transform 0.2s ease;
-    }
-    #folder-section-header.collapsed .toggle-icon svg {
-        transform: rotate(-90deg) !important;
-    }
-    #folder-section-header:not(.collapsed) .toggle-icon svg {
-        transform: rotate(0deg) !important;
-    }
-    #folder-section-header:hover .toggle-icon {
-        color: #e3e3e3;
-    }
-    
-    /* Folder Items & Add Button */
-    #folder-container { padding-bottom: 4px; }
-    
-    #add-folder-btn {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: flex-start;
-        width: calc(100% - 16px) !important;
-        margin: 2px 8px !important;
-        box-sizing: border-box !important;
-        padding: 0 12px !important;
-        min-height: 36px !important;
-        background: transparent !important;
-        border: none !important;
-        color: #c4c7c5 !important;
-        border-radius: 9999px !important;
-        cursor: pointer;
-        text-align: left;
-        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
-        font-size: 0.875rem;
-        font-weight: 400;
-        gap: 0 !important;
-        transition: background-color 0.15s ease, color 0.15s ease;
-        outline: none;
-    }
-    #add-folder-btn::before { content: none !important; }
-    #add-folder-btn:hover {
-        background-color: rgba(227, 227, 227, 0.08) !important;
-        color: #e3e3e3 !important;
-    }
-    
-    .add-folder-icon, .folder-icon-wrapper { 
-        margin-right: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-
-    /* Folder Specific */
-    .folder { margin: 0; padding: 0; overflow: visible; }
-    .folder-header {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: flex-start;
-        width: calc(100% - 16px) !important;
-        margin: 2px 8px !important;
-        box-sizing: border-box !important;
-        padding: 0 12px !important;
-        min-height: 36px !important;
-        background: transparent !important;
-        border: none !important;
-        color: #e3e3e3 !important;
-        border-radius: 9999px !important;
-        cursor: pointer;
-        text-align: left;
-        position: relative;
-        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
-        font-size: 0.875rem;
-        transition: background-color 0.15s ease;
-        outline: none;
-    }
-    .folder-header:hover {
-        background-color: rgba(227, 227, 227, 0.08) !important;
-    }
-    .folder-header.folder-drag-over {
-        background-color: rgba(227, 227, 227, 0.16) !important;
-        outline: 1px dashed #a8c7fa !important;
-        outline-offset: -1px;
-    }
-    .folder-name {
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        margin-left: 0;
-        padding-right: 8px;
-        font-size: 0.875rem;
-        color: #e3e3e3 !important;
-    }
-
-    .folder-controls {
-        display: flex !important;
-        align-items: center;
-        gap: 2px;
-        flex-shrink: 0;
-        margin-left: auto;
-    }
-    .folder-options-btn {
-        background: none !important;
-        border: none !important;
-        color: #c4c7c5 !important;
-        cursor: pointer;
-        padding: 0;
-        border-radius: 50% !important;
-        width: 24px;
-        height: 24px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.1em;
-        line-height: 1;
-        opacity: 0;
-        transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
-    }
-    .folder-header:hover .folder-options-btn {
-        opacity: 1;
-    }
-    .folder-options-btn:hover {
-        background-color: rgba(227, 227, 227, 0.12) !important;
-        color: #fff !important;
-    }
-
-    .folder-toggle-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 20px;
-        height: 20px;
-        flex-shrink: 0;
-        color: #c4c7c5;
-        transition: color 0.15s ease;
-        cursor: pointer;
-    }
-    .folder-toggle-icon svg {
-        display: block;
-        transition: transform 0.2s ease;
-    }
-    .folder.closed .folder-toggle-icon svg {
-        transform: rotate(-90deg) !important;
-    }
-    .folder:not(.closed) .folder-toggle-icon svg {
-        transform: rotate(0deg) !important;
-    }
-    .folder-header:hover .folder-toggle-icon {
-        color: #e3e3e3;
-    }
-
-    /* Folder content area - items inside */
-    .folder-content {
-        min-height: 0;
-        max-height: 2000px;
-        overflow: hidden;
-        transition: max-height 0.25s ease-in-out;
-    }
-    .folder.closed .folder-content {
-        max-height: 0 !important;
-    }
-
-    /* Chat items inside folders - match gem-nav-list-item look */
-    .folder-content .conversation-items-container,
-    .folder-content gem-nav-list-item {
-        display: block;
-        border-radius: 9999px !important;
-        margin: 2px 8px !important;
-        width: calc(100% - 16px) !important;
-        box-sizing: border-box !important;
-        padding: 0;
-        border: none;
-        transition: background-color 0.15s;
-        position: relative;
-    }
-    .folder-content .conversation-items-container::before,
-    .folder-content gem-nav-list-item::before {
-        content: none;
-    }
-    .folder-content .conversation-items-container:hover,
-    .folder-content gem-nav-list-item:hover {
-        background-color: rgba(227, 227, 227, 0.08) !important;
-    }
-
-    .conversation-items-container, gem-nav-list-item { cursor: grab; }
-
-    .folder-context-menu {
-        position: fixed; z-index: 10000;
-        background-color: #1e1f20;
-        border: 1px solid #444746;
-        border-radius: 4px;
-        padding: 8px 0;
-        box-shadow: 0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);
-        display: none;
-        min-width: 160px;
-    }
-    .folder-context-menu-item {
-        padding: 8px 12px; cursor: pointer; white-space: nowrap;
-        font-family: "Google Sans Flex","Google Sans Text","Google Sans",sans-serif;
-        font-size: 0.875rem; font-weight: 500; line-height: 1.25rem;
-        color: #e3e3e3;
-    }
-    .folder-context-menu-item:hover { background-color: rgba(227, 227, 227, 0.08); }
-    .folder-context-menu-item.delete { color: #f2b8b5; }
-    .folder-context-menu-item.delete:hover { background-color: rgba(242, 184, 181, 0.08); }
-
-    .sortable-ghost { opacity: 0.4; }
-    .item-group.sortable-ghost { background-color: #555 !important; }
-
-
-    /* --- Dialog & Color Picker Styles --- */
-    .custom-dialog-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(34, 34, 34, 0.75); z-index: 1000000; display: flex; align-items: center; justify-content: center; }
-    .custom-dialog-box { background-color: #333333; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: center; max-width: 400px; border: 1px solid var(--surface-4); }
-    .custom-dialog-box p, .custom-dialog-box h2 { margin: 0 0 20px; font-family: 'Roboto', Arial, sans-serif; color: #FFFFFF; }
-    .custom-dialog-btn { border: none; border-radius: 8px; padding: 10px 20px; cursor: pointer; font-weight: 500; margin: 0 10px; }
-    .dialog-btn-confirm { background-color: #8ab4f8; color: #202124; }
-    .dialog-btn-cancel { background-color: var(--surface-4); color: var(--on-surface); }
-    .custom-dialog-input { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-4); background-color: var(--surface-1); color: var(--on-surface); font-size: 16px; margin-bottom: 20px; }
-    .color-picker-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
-    .color-picker-dialog .color-swatch { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; position: relative; }
-    .color-picker-dialog .color-swatch:hover { border: 2px solid var(--on-primary-surface); }
-    .color-picker-dialog .color-swatch.selected::after { content: ""; position: absolute; inset: 0; border: 3px solid #fff; border-radius: 50%; box-sizing: border-box; pointer-events: none; }
-
-    /* --- Tabbed Settings Styles --- */
-    #gemini-mod-settings-panel h2 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 15px; margin-bottom: 0; }
-    .settings-container { display: flex; height: 500px; min-height: 400px; }
-    .settings-sidebar { width: 180px; border-right: 1px solid #444; padding: 15px 10px; display: flex; flex-direction: column; gap: 5px; background-color: #202122; border-bottom-left-radius: 16px; }
-    .settings-content { flex-grow: 1; padding: 20px; overflow-y: auto; background-color: #282a2c; border-bottom-right-radius: 16px; }
-    .tab-btn {
-        text-align: left; padding: 10px 15px; background: none; border: none; color: #aaa;
-        cursor: pointer; border-radius: 8px; font-size: 14px; font-weight: 500;
-        transition: all 0.2s ease; width: 100%; box-sizing: border-box;
-    }
-    .tab-btn:hover { background-color: #3c4043; color: #e3e3e3; }
-    .tab-btn.active { background-color: #4285f4; color: white; }
-    .tab-pane { display: none; animation: fadeIn 0.2s; }
-    .tab-pane.active { display: block; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-    
-    /* Help Link */
-    .help-link { font-size: 12px; color: #8ab4f8; text-decoration: none; margin-left: 5px; display: inline-flex; align-items: center; }
-    .help-link:hover { text-decoration: underline; }
-	`;
-
-	// ===================================================================================
+// ===================================================================================
 	// I. CONFIGURATION SECTION
 	// ===================================================================================
 
@@ -430,6 +38,13 @@
 	const STORAGE_KEY_TOOLBAR_ITEMS = "geminiModToolbarItems_v2";
 	const STORAGE_KEY_FOLDERS = 'gemini_folders';
 	const STORAGE_KEY_CONVO_FOLDERS = 'gemini_convo_folders';
+	const STORAGE_KEY_SYNC_KEY = 'gemini_mod_sync_key';
+	const STORAGE_KEY_AUTH_SESSION = 'gemini_mod_auth_session';
+	const STORAGE_KEY_SUPABASE_URL = 'gemini_mod_supabase_url';
+	const STORAGE_KEY_SUPABASE_KEY = 'gemini_mod_supabase_key';
+	const STORAGE_KEY_LAST_SYNC = 'gemini_mod_last_sync';
+	const STORAGE_KEY_LAST_SYNC_CLIENT = 'gemini_mod_last_sync_client';
+	const CLIENT_NAME = 'Userscript';
 
 	// --- Toolbar UI Labels ---
 	const SETTINGS_BUTTON_LABEL = "⚙️ Settings";
@@ -561,15 +176,16 @@
 				if (!hasAction('copy')) toolbarItems.push({ type: 'action', action: 'copy', label: "📄 Copy", title: "Copy active canvas content" });
 				if (!hasAction('download')) toolbarItems.push({ type: 'action', action: 'download', label: "💾 Download", title: "Download active canvas content" });
 				if (!hasAction('pdf')) toolbarItems.push({ type: 'action', action: 'pdf', label: "📑 PDF", title: "Export active canvas content as PDF" });
+				toolbarItems = toolbarItems.filter(item => item && item.type !== 'settings');
 			} else {
-				toolbarItems = defaultToolbarItems;
+				toolbarItems = defaultToolbarItems.filter(item => item && item.type !== 'settings');
 			}
 			// Folder items
 			folders = await GM_getValue(STORAGE_KEY_FOLDERS, []);
 			conversationFolders = await GM_getValue(STORAGE_KEY_CONVO_FOLDERS, {});
 		} catch (e) {
 			console.error("Gemini Mod: Error loading configuration, using defaults.", e);
-			toolbarItems = defaultToolbarItems;
+			toolbarItems = defaultToolbarItems.filter(item => item && item.type !== 'settings');
 			folders = [];
 			conversationFolders = {};
 		}
@@ -623,92 +239,7 @@
 		await GM_setValue(STORAGE_KEY_CONVO_FOLDERS, conversationFolders);
 	}
 
-	// --- Setup Guide Modal ---
 
-
-	function showSetupGuide() {
-		const overlay = document.createElement('div');
-		overlay.className = 'custom-dialog-overlay';
-		overlay.id = 'setup-guide-overlay';
-
-		const dialogBox = document.createElement('div');
-		dialogBox.className = 'custom-dialog-box';
-		dialogBox.style.maxWidth = '600px';
-
-		const h3 = document.createElement('h3');
-		h3.textContent = 'Google Drive Sync Setup';
-		dialogBox.appendChild(h3);
-
-		const p1 = document.createElement('p');
-		p1.textContent = '';
-		p1.appendChild(document.createTextNode('To sync explicitly via Google Drive, you need a '));
-		const b1 = document.createElement('b');
-		b1.textContent = 'Google Cloud Client ID';
-		p1.appendChild(b1);
-		p1.appendChild(document.createTextNode('. This is required because this script runs privately in your browser.'));
-		dialogBox.appendChild(p1);
-
-		const ol = document.createElement('ol');
-		const steps = [
-			{ html: false, text: 'Go to ', link: { href: 'https://console.cloud.google.com/apis/credentials', text: 'Google Cloud Console' } },
-			{ html: false, text: 'Create a new project (or use existing).' },
-			{ html: false, parts: [{ text: 'Enable the ' }, { tag: 'b', text: 'Google Drive API' }, { text: '.' }] },
-			{ html: false, text: 'Create Credentials -> OAuth client ID.' },
-			{ html: false, parts: [{ text: 'Application type: ' }, { tag: 'b', text: 'Web application' }, { text: '.' }] },
-			{ html: false, parts: [{ text: 'Add authorized origins: ' }, { tag: 'code', text: 'https://gemini.google.com' }] },
-			{ html: false, parts: [{ text: 'Copy the ' }, { tag: 'b', text: 'Client ID' }, { text: ' and paste it in the settings here.' }] }
-		];
-
-		const createStep = (step) => {
-			const li = document.createElement('li');
-			if (step.link) {
-				li.appendChild(document.createTextNode(step.text));
-				const a = document.createElement('a');
-				a.href = step.link.href;
-				a.target = '_blank';
-				a.textContent = step.link.text;
-				li.appendChild(a);
-				li.appendChild(document.createTextNode('.'));
-			} else if (step.parts) {
-				step.parts.forEach(part => {
-					if (part.tag) {
-						const tag = document.createElement(part.tag);
-						tag.textContent = part.text;
-						li.appendChild(tag);
-					} else {
-						li.appendChild(document.createTextNode(part.text));
-					}
-				});
-			} else {
-				li.textContent = step.text;
-			}
-			return li;
-		};
-
-		steps.forEach(step => ol.appendChild(createStep(step)));
-		dialogBox.appendChild(ol);
-
-		const p2 = document.createElement('p');
-		const i = document.createElement('i');
-		i.appendChild(document.createTextNode('Alternatively, use the '));
-		const b2 = document.createElement('b');
-		b2.textContent = 'File Backup';
-		i.appendChild(b2);
-		i.appendChild(document.createTextNode(' option below to save/restore manually without setup.'));
-		p2.appendChild(i);
-		dialogBox.appendChild(p2);
-
-
-		const closeBtn = document.createElement('button');
-		closeBtn.className = 'custom-dialog-btn dialog-btn-cancel';
-		closeBtn.textContent = 'Close';
-		closeBtn.onclick = () => overlay.remove();
-		closeBtn.style.marginTop = '20px';
-
-		dialogBox.appendChild(closeBtn);
-		overlay.appendChild(dialogBox);
-		document.body.appendChild(overlay);
-	}
 
 	// --- Toolbar Creation ---
 
@@ -789,7 +320,7 @@
 
 	// --- Settings Panel ---
 
-	function toggleSettingsPanel(show = true) {
+	function toggleSettingsPanel(forceState) {
 		let overlay = document.getElementById('gemini-mod-settings-overlay');
 		let panel = document.getElementById('gemini-mod-settings-panel');
 
@@ -798,6 +329,9 @@
 			overlay = document.getElementById('gemini-mod-settings-overlay');
 			panel = document.getElementById('gemini-mod-settings-panel');
 		}
+		if (!overlay) return;
+		const isVisible = overlay.style.display === 'block';
+		const show = typeof forceState === 'boolean' ? forceState : !isVisible;
 
 		if (show) {
 			populateSettingsPanel(panel);
@@ -807,28 +341,362 @@
 		}
 	}
 
-	async function updateSettingsPanelDriveStatus() {
-		const statusText = document.getElementById('gdrive-status-text');
-		const connectBtn = document.getElementById('gdrive-connect-btn');
-		const saveBtn = document.getElementById('gdrive-save-btn');
-		const loadBtn = document.getElementById('gdrive-load-btn');
-		const backupContainer = document.getElementById('gdrive-backup-container');
+	// ===================================================================================
+	// III.A CLOUD SYNC ENGINE (Supabase & Local File Backup)
+	// ===================================================================================
 
-		if (statusText && connectBtn) {
-			const token = await GeminiMod.drive.getGoogleDriveToken();
-			if (token) {
-				statusText.textContent = "Status: Connected ✅";
-				statusText.style.color = "#8ab4f8";
-				connectBtn.style.display = 'none';
-				backupContainer.style.display = 'block';
-			} else {
-				statusText.textContent = "Status: Not Connected";
-				statusText.style.color = "#aaa";
-				connectBtn.style.display = 'inline-block';
-				backupContainer.style.display = 'none';
+	const GeminiSync = {
+		DEFAULT_SUPABASE_URL: 'https://wurrurgloawzvtiyilyr.supabase.co',
+		DEFAULT_SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1cnJ1cmdsb2F3enZ0aXlpbHlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3NzgwODQsImV4cCI6MjEwNjM1NDA4NH0.aQ8GNObnE9xH8Jd3Rpv9eSp3c72ymjKuWC4Z8qGUQh4',
+
+		getSession: async function () {
+			try {
+				const raw = await GM_getValue(STORAGE_KEY_AUTH_SESSION, null);
+				if (!raw) return null;
+				return typeof raw === 'string' ? JSON.parse(raw) : raw;
+			} catch (_) {
+				return null;
 			}
+		},
+
+		setSession: async function (session) {
+			if (session) {
+				await GM_setValue(STORAGE_KEY_AUTH_SESSION, JSON.stringify(session));
+			} else {
+				await this.clearSession();
+			}
+		},
+
+		clearSession: async function () {
+			await GM_deleteValue(STORAGE_KEY_AUTH_SESSION);
+		},
+
+		isAuthenticated: async function () {
+			const s = await this.getSession();
+			return !!(s && s.access_token && s.user);
+		},
+
+		getCurrentUser: async function () {
+			const s = await this.getSession();
+			return s ? s.user : null;
+		},
+
+		getSupabaseConfig: async function () {
+			const url = (await GM_getValue(STORAGE_KEY_SUPABASE_URL, '')) || this.DEFAULT_SUPABASE_URL;
+			const key = (await GM_getValue(STORAGE_KEY_SUPABASE_KEY, '')) || this.DEFAULT_SUPABASE_KEY;
+			return {
+				url: url.trim().replace(/\/+$/, ''),
+				key: key.trim()
+			};
+		},
+
+		setSupabaseConfig: async function (url, key) {
+			await GM_setValue(STORAGE_KEY_SUPABASE_URL, (url || '').trim().replace(/\/+$/, ''));
+			await GM_setValue(STORAGE_KEY_SUPABASE_KEY, (key || '').trim());
+		},
+
+		resetSupabaseConfig: async function () {
+			await GM_deleteValue(STORAGE_KEY_SUPABASE_URL);
+			await GM_deleteValue(STORAGE_KEY_SUPABASE_KEY);
+		},
+
+		getLastSyncInfo: async function () {
+			const ts = await GM_getValue(STORAGE_KEY_LAST_SYNC, null);
+			const client = await GM_getValue(STORAGE_KEY_LAST_SYNC_CLIENT, null);
+			return {
+				timestamp: ts ? parseInt(ts, 10) : null,
+				client: client || null
+			};
+		},
+
+		request: function (endpoint, method, data, config, customToken = null) {
+			return new Promise((resolve, reject) => {
+				const url = `${config.url}${endpoint}`;
+				const authToken = customToken || config.key;
+				const headers = {
+					'apikey': config.key,
+					'Authorization': `Bearer ${authToken}`
+				};
+				if (data) headers['Content-Type'] = 'application/json';
+				if (method === 'POST') {
+					headers['Prefer'] = 'resolution=merge-duplicates,return=representation';
+				}
+
+				if (typeof GM_xmlhttpRequest === 'function') {
+					GM_xmlhttpRequest({
+						method: method,
+						url: url,
+						headers: headers,
+						data: data ? JSON.stringify(data) : undefined,
+						onload: (res) => {
+							if (res.status >= 200 && res.status < 300) {
+								try {
+									resolve(res.responseText ? JSON.parse(res.responseText) : null);
+								} catch (_) {
+									resolve(res.responseText);
+								}
+							} else {
+								let msg = `HTTP ${res.status}`;
+								try {
+									const p = JSON.parse(res.responseText);
+									if (p.msg) msg = p.msg;
+									else if (p.message) msg = p.message;
+									else if (p.error_description) msg = p.error_description;
+									else if (p.error) msg = typeof p.error === 'string' ? p.error : JSON.stringify(p.error);
+								} catch (_) {
+									if (res.responseText) msg += `: ${res.responseText.slice(0, 120)}`;
+								}
+								reject(new Error(msg));
+							}
+						},
+						onerror: () => reject(new Error("Network request failed"))
+					});
+					return;
+				}
+
+				fetch(url, {
+					method: method,
+					headers: headers,
+					body: data ? JSON.stringify(data) : undefined
+				}).then(async res => {
+					if (res.ok) {
+						const txt = await res.text();
+						try { resolve(txt ? JSON.parse(txt) : null); }
+						catch (_) { resolve(txt); }
+					} else {
+						const txt = await res.text();
+						let msg = `HTTP ${res.status}`;
+						try {
+							const p = JSON.parse(txt);
+							if (p.msg) msg = p.msg;
+							else if (p.message) msg = p.message;
+							else if (p.error_description) msg = p.error_description;
+							else if (p.error) msg = typeof p.error === 'string' ? p.error : JSON.stringify(p.error);
+						} catch (_) {
+							if (txt) msg += `: ${txt.slice(0, 100)}`;
+						}
+						reject(new Error(msg));
+					}
+				}).catch(reject);
+			});
+		},
+
+		getValidAccessToken: async function () {
+			const session = await this.getSession();
+			if (!session || !session.access_token) {
+				throw new Error("You must be logged in to sync settings.");
+			}
+
+			// If token expires in less than 60 seconds, refresh it
+			if (session.refresh_token && session.expires_at && (session.expires_at - Date.now() < 60000)) {
+				const config = await this.getSupabaseConfig();
+				try {
+					const res = await this.request('/auth/v1/token?grant_type=refresh_token', 'POST', {
+						refresh_token: session.refresh_token
+					}, config);
+
+					if (res && res.access_token) {
+						const updatedSession = {
+							access_token: res.access_token,
+							refresh_token: res.refresh_token || session.refresh_token,
+							expires_at: Date.now() + ((res.expires_in || 3600) * 1000),
+							user: res.user || session.user
+						};
+						await this.setSession(updatedSession);
+						return updatedSession.access_token;
+					}
+				} catch (refreshErr) {
+					console.warn("Gemini Mod: Token refresh failed:", refreshErr);
+					await this.clearSession();
+					throw new Error("Session expired. Please log in again.");
+				}
+			}
+
+			return session.access_token;
+		},
+
+		signUp: async function (email, password) {
+			const cleanEmail = (email || '').trim();
+			const cleanPass = (password || '').trim();
+			if (!cleanEmail || !cleanEmail.includes('@')) {
+				throw new Error("Please enter a valid email address.");
+			}
+			if (!cleanPass || cleanPass.length < 6) {
+				throw new Error("Password must be at least 6 characters.");
+			}
+
+			const config = await this.getSupabaseConfig();
+			const res = await this.request('/auth/v1/signup', 'POST', {
+				email: cleanEmail,
+				password: cleanPass
+			}, config);
+
+			// If auto-confirm gave us a session immediately:
+			if (res && res.access_token) {
+				const session = {
+					access_token: res.access_token,
+					refresh_token: res.refresh_token,
+					expires_at: Date.now() + ((res.expires_in || 3600) * 1000),
+					user: {
+						id: res.user.id,
+						email: res.user.email
+					}
+				};
+				await this.setSession(session);
+				return session.user;
+			}
+
+			// Otherwise, perform sign in to fetch session tokens
+			return await this.signIn(cleanEmail, cleanPass);
+		},
+
+		signIn: async function (email, password) {
+			const cleanEmail = (email || '').trim();
+			const cleanPass = (password || '').trim();
+			if (!cleanEmail || !cleanPass) {
+				throw new Error("Please enter your email and password.");
+			}
+
+			const config = await this.getSupabaseConfig();
+			const res = await this.request('/auth/v1/token?grant_type=password', 'POST', {
+				email: cleanEmail,
+				password: cleanPass
+			}, config);
+
+			if (!res || !res.access_token || !res.user) {
+				throw new Error("Invalid response received from authentication server.");
+			}
+
+			const session = {
+				access_token: res.access_token,
+				refresh_token: res.refresh_token,
+				expires_at: Date.now() + ((res.expires_in || 3600) * 1000),
+				user: {
+					id: res.user.id,
+					email: res.user.email
+				}
+			};
+			await this.setSession(session);
+			return session.user;
+		},
+
+		signOut: async function () {
+			const session = await this.getSession();
+			if (session && session.access_token) {
+				const config = await this.getSupabaseConfig();
+				try {
+					await this.request('/auth/v1/logout', 'POST', null, config, session.access_token);
+				} catch (_) {
+					// Best effort
+				}
+			}
+			await this.clearSession();
+		},
+
+		saveToCloud: async function (currentSettings, clientName = 'Userscript') {
+			const token = await this.getValidAccessToken();
+			const session = await this.getSession();
+			if (!session || !session.user || !session.user.id) {
+				throw new Error("Unable to identify authenticated user. Please log in again.");
+			}
+
+			const config = await this.getSupabaseConfig();
+			const payload = {
+				user_id: session.user.id,
+				data: {
+					toolbarItems: currentSettings.toolbarItems,
+					folders: currentSettings.folders,
+					conversationFolders: currentSettings.conversationFolders,
+					timestamp: Date.now(),
+					client: clientName
+				},
+				client_name: clientName,
+				updated_at: new Date().toISOString()
+			};
+
+			// Check client-side payload size limit (Postgres limit is 500KB)
+			const serialized = JSON.stringify(payload.data);
+			if (serialized.length > 450000) {
+				throw new Error(`Settings size (${Math.round(serialized.length / 1024)} KB) exceeds the 450 KB safety limit.`);
+			}
+
+			await this.request('/rest/v1/gemini_mod_settings', 'POST', payload, config, token);
+
+			const now = Date.now();
+			await GM_setValue(STORAGE_KEY_LAST_SYNC, now.toString());
+			await GM_setValue(STORAGE_KEY_LAST_SYNC_CLIENT, clientName);
+			return payload;
+		},
+
+		loadFromCloud: async function () {
+			const token = await this.getValidAccessToken();
+			const config = await this.getSupabaseConfig();
+			const endpoint = '/rest/v1/gemini_mod_settings?select=*';
+			const res = await this.request(endpoint, 'GET', null, config, token);
+
+			if (!res || !Array.isArray(res) || res.length === 0) {
+				throw new Error("No cloud backup found for this account. Upload your settings to the cloud first!");
+			}
+
+			const record = res[0];
+			const data = record.data;
+			if (!data || (!data.toolbarItems && !data.folders)) {
+				throw new Error("Invalid or empty data received from cloud.");
+			}
+
+			const sourceClient = record.client_name || data.client || 'Cloud';
+			const now = Date.now();
+			await GM_setValue(STORAGE_KEY_LAST_SYNC, now.toString());
+			await GM_setValue(STORAGE_KEY_LAST_SYNC_CLIENT, sourceClient);
+
+			return {
+				toolbarItems: data.toolbarItems || [],
+				folders: data.folders || [],
+				conversationFolders: data.conversationFolders || {},
+				timestamp: data.timestamp || record.updated_at,
+				client: sourceClient
+			};
+		},
+
+		exportSettingsToFile: function (dataToSave) {
+			const fullData = {
+				toolbarItems: dataToSave.toolbarItems,
+				folders: dataToSave.folders,
+				conversationFolders: dataToSave.conversationFolders,
+				timestamp: Date.now(),
+				version: 1
+			};
+			const blob = new Blob([JSON.stringify(fullData, null, 2)], { type: "application/json" });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `gemini_settings_backup_${new Date().toISOString().slice(0, 10)}.json`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		},
+
+		importSettingsFromFile: function (file, onImportSuccess) {
+			const reader = new FileReader();
+			reader.onload = async (e) => {
+				try {
+					const data = JSON.parse(e.target.result);
+					if (data && (data.toolbarItems || data.folders)) {
+						onImportSuccess(data);
+					} else {
+						displayMessage("Invalid backup file: file must contain toolbarItems or folders.");
+					}
+				} catch (err) {
+					displayMessage("Error reading file: " + err.message);
+				}
+			};
+			reader.readAsText(file);
 		}
-	}
+	};
+
+	window.GeminiMod.sync = GeminiSync;
+	window.GeminiMod.drive = GeminiSync; // Backwards compatibility alias
 
 	function createSettingsPanel() {
 		if (document.getElementById('gemini-mod-settings-overlay')) return;
@@ -852,7 +720,7 @@
 
 		const tabs = [
 			{ id: 'tab-toolbar', label: '🛠️ Toolbar' },
-			{ id: 'tab-drive', label: '☁️ Google Drive' },
+			{ id: 'tab-sync', label: '☁️ Cloud Sync' },
 			{ id: 'tab-reset', label: '⚠️ Danger Zone' }
 		];
 
@@ -865,7 +733,9 @@
 				document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
 				document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
 				btn.classList.add('active');
-				document.getElementById(tab.id).classList.add('active');
+				const targetPane = document.getElementById(tab.id);
+				if (targetPane) targetPane.classList.add('active');
+				if (tab.id === 'tab-sync') updateSettingsPanelSyncStatus();
 			};
 			sidebar.appendChild(btn);
 		});
@@ -926,167 +796,256 @@
 		content.appendChild(tabToolbar);
 
 
-		// --- TAB 2: GOOGLE DRIVE ---
-		const tabDrive = document.createElement('div');
-		tabDrive.id = 'tab-drive';
-		tabDrive.className = 'tab-pane';
+		// --- TAB 2: CLOUD SYNC ---
+		const tabSync = document.createElement('div');
+		tabSync.id = 'tab-sync';
+		tabSync.className = 'tab-pane';
 
-		const driveHeader = document.createElement('h3');
-		driveHeader.textContent = 'Google Drive Sync';
-		driveHeader.style.marginTop = '0';
+		const syncHeading = document.createElement('h3');
+		syncHeading.textContent = 'Cloud Synchronization (Supabase)';
+		syncHeading.style.marginTop = '0';
+		tabSync.appendChild(syncHeading);
 
-		// Help Icon/Button
-		const helpBtn = document.createElement('button');
-		helpBtn.textContent = '📖'; // Book icon
-		helpBtn.title = "Show Setup Instructions";
-		helpBtn.style.marginLeft = '10px';
-		helpBtn.style.background = 'transparent';
-		helpBtn.style.border = '1px solid #5f6368';
-		helpBtn.onclick = showSetupGuide;
-		driveHeader.appendChild(helpBtn);
+		const syncDesc = document.createElement('p');
+		syncDesc.textContent = 'Synchronize toolbar items, folders, and conversation mappings between Ferdium, browser userscripts, and across devices.';
+		syncDesc.style.fontSize = '13px';
+		syncDesc.style.color = '#aaa';
+		syncDesc.style.marginTop = '-5px';
+		tabSync.appendChild(syncDesc);
 
-		tabDrive.appendChild(driveHeader);
+		// Status card
+		const statusCard = document.createElement('div');
+		statusCard.className = 'sync-status-card';
+		const statusTitle = document.createElement('div');
+		statusTitle.id = 'sync-status-text';
+		statusTitle.className = 'sync-status-title';
+		statusTitle.textContent = 'Status: Checking...';
+		statusTitle.style.color = '#8ab4f8';
+		const statusDetail = document.createElement('div');
+		statusDetail.id = 'sync-last-time-text';
+		statusDetail.className = 'sync-status-detail';
+		statusDetail.textContent = '';
+		statusCard.appendChild(statusTitle);
+		statusCard.appendChild(statusDetail);
+		tabSync.appendChild(statusCard);
 
-		// Client ID Input
-		const clientIdLabel = document.createElement('label');
-		clientIdLabel.textContent = "Google Cloud Client ID:";
-		tabDrive.appendChild(clientIdLabel);
+		// Container 1: Logged-in view
+		const loggedInBox = document.createElement('div');
+		loggedInBox.id = 'sync-auth-logged-in';
+		loggedInBox.style.display = 'none';
 
-		const clientIdContainer = document.createElement('div');
-		clientIdContainer.style.display = 'flex';
-		clientIdContainer.style.alignItems = 'center';
-		clientIdContainer.style.gap = '5px';
+		const userCard = document.createElement('div');
+		userCard.className = 'sync-user-card';
 
-		const clientIdInput = document.createElement('input');
-		clientIdInput.id = 'gdrive-client-id-input';
-		clientIdInput.type = 'password';
-		clientIdInput.placeholder = "Enter your OAuth 2.0 Client ID";
-		clientIdInput.style.flexGrow = '1';
-		clientIdInput.value = ""; // Will be populated
+		const userInfo = document.createElement('div');
+		userInfo.className = 'sync-user-info';
+		const userIcon = document.createElement('span');
+		userIcon.textContent = '👤';
+		const userEmail = document.createElement('span');
+		userEmail.id = 'sync-user-email';
+		userEmail.textContent = '';
+		userInfo.appendChild(userIcon);
+		userInfo.appendChild(userEmail);
 
-		// Toggle Visibility
-		const toggleVisBtn = document.createElement('button');
-		toggleVisBtn.textContent = '👁️';
-		toggleVisBtn.title = "Toggle Visibility";
-		toggleVisBtn.onclick = () => {
-			clientIdInput.type = clientIdInput.type === 'password' ? 'text' : 'password';
+		const logoutBtn = document.createElement('button');
+		logoutBtn.textContent = '🚪 Log Out';
+		logoutBtn.className = 'custom-dialog-btn dialog-btn-delete';
+		logoutBtn.title = 'Log out of Supabase on this device';
+		logoutBtn.onclick = async () => {
+			await GeminiSync.signOut();
+			await updateSettingsPanelSyncStatus();
+			displayMessage("Logged out successfully.", false);
 		};
 
-		// Help Link
-		const helpLink = document.createElement('a');
-		helpLink.href = "https://console.cloud.google.com/apis/credentials";
-		helpLink.target = "_blank";
-		helpLink.textContent = "❓ Get ID";
-		helpLink.className = 'help-link';
+		userCard.appendChild(userInfo);
+		userCard.appendChild(logoutBtn);
+		loggedInBox.appendChild(userCard);
 
-		clientIdContainer.appendChild(clientIdInput);
-		clientIdContainer.appendChild(toggleVisBtn);
-		clientIdContainer.appendChild(helpLink);
-		tabDrive.appendChild(clientIdContainer);
+		// Sync Actions Box
+		const actionsBox = document.createElement('div');
+		actionsBox.className = 'sync-actions-box';
 
-		const saveClientIdBtn = document.createElement('button');
-		saveClientIdBtn.textContent = "Save Client ID";
-		saveClientIdBtn.style.marginTop = "10px";
-		saveClientIdBtn.addEventListener('click', async () => {
-			const val = clientIdInput.value.trim();
-			if (val) {
-				await GM_setValue(STORAGE_KEY_GDRIVE_CLIENT_ID, val);
-				displayMessage("Client ID saved!", false);
-				updateSettingsPanelDriveStatus();
-			} else {
-				displayMessage("Please enter a Client ID.");
+		const uploadBtn = document.createElement('button');
+		uploadBtn.textContent = '☁️ Upload to Cloud (Backup)';
+		uploadBtn.className = 'custom-dialog-btn sync-btn-primary';
+		uploadBtn.title = 'Upload current settings and folders to Supabase';
+		uploadBtn.onclick = async () => {
+			try {
+				await GeminiSync.saveToCloud({
+					toolbarItems,
+					folders,
+					conversationFolders
+				}, CLIENT_NAME);
+				await updateSettingsPanelSyncStatus();
+				displayMessage("Settings uploaded to Cloud successfully!", false);
+			} catch (err) {
+				displayMessage("Upload failed: " + err.message);
 			}
-		});
-		tabDrive.appendChild(saveClientIdBtn);
-
-		// Connection Status
-		const statusText = document.createElement('p');
-		statusText.id = 'gdrive-status-text';
-		statusText.textContent = "Status: Checking...";
-		statusText.style.marginTop = "20px";
-		statusText.style.fontWeight = "bold";
-		tabDrive.appendChild(statusText);
-
-		// Connect Button
-		const connectBtn = document.createElement('button');
-		connectBtn.id = 'gdrive-connect-btn';
-		connectBtn.textContent = "Connect Google Drive";
-		connectBtn.className = 'custom-dialog-btn dialog-btn-confirm';
-		connectBtn.style.display = 'none';
-		connectBtn.addEventListener('click', () => GeminiMod.drive.initiateGoogleDriveAuth());
-		tabDrive.appendChild(connectBtn);
-
-		// Backup Controls (Hidden until connected)
-		const backupContainer = document.createElement('div');
-		backupContainer.id = 'gdrive-backup-container';
-		backupContainer.style.display = 'none';
-		backupContainer.style.marginTop = '15px';
-		backupContainer.style.borderTop = '1px solid #444';
-		backupContainer.style.paddingTop = '15px';
-
-		const backupTitle = document.createElement('h4');
-		backupTitle.textContent = "Synchronization";
-		backupTitle.style.marginTop = '0';
-		backupContainer.appendChild(backupTitle);
-
-		const saveBtn = document.createElement('button');
-		saveBtn.id = 'gdrive-save-btn';
-		saveBtn.textContent = "☁️ Save to Drive";
-		saveBtn.className = 'custom-dialog-btn';
-		saveBtn.style.marginRight = '10px';
-		saveBtn.title = "Overwrite the backup file on Google Drive with current settings";
-		saveBtn.onclick = () => {
-			GeminiMod.drive.saveToDrive({
-				toolbarItems,
-				folders,
-				conversationFolders
-			});
 		};
-		backupContainer.appendChild(saveBtn);
 
-		const loadBtn = document.createElement('button');
-		loadBtn.id = 'gdrive-load-btn';
-		loadBtn.textContent = "☁️ Load from Drive";
-		loadBtn.className = 'custom-dialog-btn';
-		loadBtn.title = "Overwrite local settings with data from Google Drive";
-		loadBtn.onclick = () => {
-			GeminiMod.drive.loadFromDrive(async (data) => {
-				if (data && data.toolbarItems && data.folders) {
-					await GM_setValue(STORAGE_KEY_TOOLBAR_ITEMS, JSON.stringify(data.toolbarItems));
-					await GM_setValue(STORAGE_KEY_FOLDERS, data.folders);
-					await GM_setValue(STORAGE_KEY_CONVO_FOLDERS, data.conversationFolders || {});
-					displayMessage("Settings loaded from Drive! Reloading page...", false);
-					setTimeout(() => location.reload(), 1500);
-				} else {
-					displayMessage("Invalid file format downloaded from Drive.");
-				}
-			});
+		const downloadBtn = document.createElement('button');
+		downloadBtn.textContent = '☁️ Download from Cloud (Sync)';
+		downloadBtn.className = 'custom-dialog-btn sync-btn-primary';
+		downloadBtn.title = 'Download settings and folders from Supabase and apply them';
+		downloadBtn.onclick = async () => {
+			try {
+				const remote = await GeminiSync.loadFromCloud();
+				const clientStr = remote.client ? ` (from ${remote.client})` : '';
+				const timeStr = remote.timestamp ? ` from ${new Date(remote.timestamp).toLocaleString()}` : '';
+				showConfirm(`This will overwrite your local configuration with cloud settings${clientStr}${timeStr}. Continue?`, async () => {
+					await GM_setValue(STORAGE_KEY_TOOLBAR_ITEMS, JSON.stringify(remote.toolbarItems));
+					await GM_setValue(STORAGE_KEY_FOLDERS, remote.folders);
+					await GM_setValue(STORAGE_KEY_CONVO_FOLDERS, remote.conversationFolders || {});
+					displayMessage("Settings downloaded from Cloud! Reloading...", false);
+					setTimeout(() => location.reload(), 1000);
+				}, 'Overwrite & Apply', 'dialog-btn-confirm');
+			} catch (err) {
+				displayMessage("Download failed: " + err.message);
+			}
 		};
-		backupContainer.appendChild(loadBtn);
 
-		tabDrive.appendChild(backupContainer);
+		actionsBox.appendChild(uploadBtn);
+		actionsBox.appendChild(downloadBtn);
+		loggedInBox.appendChild(actionsBox);
+		tabSync.appendChild(loggedInBox);
 
-		// --- Manual Backup Section ---
-		const manualBackupHeader = document.createElement('h3');
-		manualBackupHeader.textContent = 'Manual File Backup';
-		tabDrive.appendChild(manualBackupHeader);
+		// Container 2: Logged-out view (Sign Up / Log In)
+		const loggedOutBox = document.createElement('div');
+		loggedOutBox.id = 'sync-auth-logged-out';
+		loggedOutBox.className = 'sync-auth-box';
+
+		const authNotice = document.createElement('div');
+		authNotice.className = 'sync-auth-notice';
+		authNotice.textContent = '🛡️ Multi-User Protection: Log in with your email and password to securely access your settings. Each user\'s configuration is strictly isolated with Row-Level Security.';
+		loggedOutBox.appendChild(authNotice);
+
+		const emailLabel = document.createElement('label');
+		emailLabel.textContent = 'Email:';
+		loggedOutBox.appendChild(emailLabel);
+
+		const emailInput = document.createElement('input');
+		emailInput.id = 'sync-email-input';
+		emailInput.type = 'email';
+		emailInput.placeholder = 'your.email@example.com';
+		loggedOutBox.appendChild(emailInput);
+
+		const passLabel = document.createElement('label');
+		passLabel.textContent = 'Password:';
+		loggedOutBox.appendChild(passLabel);
+
+		const passRow = document.createElement('div');
+		passRow.className = 'sync-auth-row';
+
+		const passInput = document.createElement('input');
+		passInput.id = 'sync-password-input';
+		passInput.type = 'password';
+		passInput.placeholder = 'Password (min. 6 characters)';
+		passInput.style.flexGrow = '1';
+
+		const togglePassBtn = document.createElement('button');
+		togglePassBtn.textContent = '👁️';
+		togglePassBtn.className = 'custom-dialog-btn';
+		togglePassBtn.style.padding = '4px 8px';
+		togglePassBtn.style.margin = '0';
+		togglePassBtn.title = 'Toggle Password Visibility';
+		togglePassBtn.onclick = () => {
+			passInput.type = passInput.type === 'password' ? 'text' : 'password';
+		};
+
+		passRow.appendChild(passInput);
+		passRow.appendChild(togglePassBtn);
+		loggedOutBox.appendChild(passRow);
+
+		const authBtnsRow = document.createElement('div');
+		authBtnsRow.className = 'sync-auth-btns';
+
+		const loginBtn = document.createElement('button');
+		loginBtn.textContent = '🔑 Log In';
+		loginBtn.className = 'custom-dialog-btn sync-btn-primary';
+		loginBtn.onclick = async () => {
+			const email = emailInput.value.trim();
+			const pass = passInput.value.trim();
+			if (!email || !pass) {
+				displayMessage("Please enter your email and password.");
+				return;
+			}
+			try {
+				loginBtn.disabled = true;
+				loginBtn.textContent = 'Logging in...';
+				const user = await GeminiSync.signIn(email, pass);
+				passInput.value = '';
+				await updateSettingsPanelSyncStatus();
+				displayMessage(`Welcome back, ${user.email}!`, false);
+			} catch (err) {
+				displayMessage("Login failed: " + err.message);
+			} finally {
+				loginBtn.disabled = false;
+				loginBtn.textContent = '🔑 Log In';
+			}
+		};
+
+		const signupBtn = document.createElement('button');
+		signupBtn.textContent = '✨ Sign Up';
+		signupBtn.className = 'custom-dialog-btn';
+		signupBtn.title = 'Create a new sync account with this email and password';
+		signupBtn.onclick = async () => {
+			const email = emailInput.value.trim();
+			const pass = passInput.value.trim();
+			if (!email || !pass) {
+				displayMessage("Please enter an email and password to create an account.");
+				return;
+			}
+			try {
+				signupBtn.disabled = true;
+				signupBtn.textContent = 'Signing up...';
+				const user = await GeminiSync.signUp(email, pass);
+				passInput.value = '';
+				await updateSettingsPanelSyncStatus();
+				displayMessage(`Account created and connected as ${user.email}!`, false);
+			} catch (err) {
+				displayMessage("Sign up failed: " + err.message);
+			} finally {
+				signupBtn.disabled = false;
+				signupBtn.textContent = '✨ Sign Up';
+			}
+		};
+
+		authBtnsRow.appendChild(loginBtn);
+		authBtnsRow.appendChild(signupBtn);
+		loggedOutBox.appendChild(authBtnsRow);
+
+		const signupHelp = document.createElement('p');
+		signupHelp.textContent = '💡 First time? Enter your email and password, then click "Sign Up" to create your personal account.';
+		signupHelp.style.fontSize = '12px';
+		signupHelp.style.color = '#8ab4f8';
+		signupHelp.style.margin = '10px 0 0 0';
+		loggedOutBox.appendChild(signupHelp);
+
+		tabSync.appendChild(loggedOutBox);
+
+		// Manual File Backup Section
+		const manualHeader = document.createElement('h3');
+		manualHeader.textContent = 'Manual File Backup';
+		tabSync.appendChild(manualHeader);
 
 		const manualDesc = document.createElement('p');
-		manualDesc.textContent = "No setup required. Save your settings to a local file.";
-		manualDesc.style.fontSize = '0.9em';
+		manualDesc.textContent = 'Export or import your complete configuration to/from a local .json file.';
+		manualDesc.style.fontSize = '12px';
 		manualDesc.style.color = '#aaa';
-		tabDrive.appendChild(manualDesc);
+		manualDesc.style.marginTop = '-5px';
+		tabSync.appendChild(manualDesc);
+
+		const fileRow = document.createElement('div');
+		fileRow.style.display = 'flex';
+		fileRow.style.gap = '10px';
+		fileRow.style.marginBottom = '20px';
 
 		const exportBtn = document.createElement('button');
-		exportBtn.textContent = "⬇️ Export to File";
+		exportBtn.textContent = '⬇️ Export to File';
 		exportBtn.className = 'custom-dialog-btn';
-		exportBtn.style.marginRight = '10px';
-		exportBtn.onclick = () => GeminiMod.drive.exportSettingsToFile({
-			toolbarItems,
-			folders,
-			conversationFolders
-		});
-		tabDrive.appendChild(exportBtn);
+		exportBtn.onclick = () => {
+			GeminiSync.exportSettingsToFile({ toolbarItems, folders, conversationFolders });
+		};
 
 		const importInput = document.createElement('input');
 		importInput.type = 'file';
@@ -1094,27 +1053,80 @@
 		importInput.style.display = 'none';
 		importInput.onchange = (e) => {
 			if (e.target.files.length > 0) {
-				GeminiMod.drive.importSettingsFromFile(e.target.files[0], async (data) => {
-					await GM_setValue(STORAGE_KEY_TOOLBAR_ITEMS, JSON.stringify(data.toolbarItems));
-					await GM_setValue(STORAGE_KEY_FOLDERS, data.folders);
-					await GM_setValue(STORAGE_KEY_CONVO_FOLDERS, data.conversationFolders || {});
-					if (data.gdriveClientId) await GM_setValue(STORAGE_KEY_GDRIVE_CLIENT_ID, data.gdriveClientId);
-
-					displayMessage("Settings imported successfully! Reloading...", false);
-					setTimeout(() => location.reload(), 1500);
+				GeminiSync.importSettingsFromFile(e.target.files[0], (imported) => {
+					showConfirm('Overwrite local settings with imported backup file?', async () => {
+						if (imported.toolbarItems) await GM_setValue(STORAGE_KEY_TOOLBAR_ITEMS, JSON.stringify(imported.toolbarItems));
+						if (imported.folders) await GM_setValue(STORAGE_KEY_FOLDERS, imported.folders);
+						if (imported.conversationFolders) await GM_setValue(STORAGE_KEY_CONVO_FOLDERS, imported.conversationFolders);
+						displayMessage("Backup imported successfully! Reloading...", false);
+						setTimeout(() => location.reload(), 1000);
+					}, 'Import & Overwrite', 'dialog-btn-confirm');
 				});
 			}
 		};
 
 		const importBtn = document.createElement('button');
-		importBtn.textContent = "⬆️ Import from File";
+		importBtn.textContent = '⬆️ Import from File';
 		importBtn.className = 'custom-dialog-btn';
 		importBtn.onclick = () => importInput.click();
-		tabDrive.appendChild(importBtn);
-		tabDrive.appendChild(importInput);
 
+		fileRow.appendChild(exportBtn);
+		fileRow.appendChild(importBtn);
+		fileRow.appendChild(importInput);
+		tabSync.appendChild(fileRow);
 
-		content.appendChild(tabDrive);
+		// Advanced Supabase Connection
+		const advancedDetails = document.createElement('details');
+		advancedDetails.className = 'sync-advanced-details';
+		const advancedSummary = document.createElement('summary');
+		advancedSummary.textContent = '⚙️ Advanced Supabase Connection Settings';
+		advancedDetails.appendChild(advancedSummary);
+
+		const urlLabel = document.createElement('label');
+		urlLabel.textContent = 'Supabase Project URL:';
+		advancedDetails.appendChild(urlLabel);
+		const urlInput = document.createElement('input');
+		urlInput.id = 'supabase-url-input';
+		urlInput.type = 'text';
+		advancedDetails.appendChild(urlInput);
+
+		const keyAdvLabel = document.createElement('label');
+		keyAdvLabel.textContent = 'Supabase Anon/Publishable Key:';
+		advancedDetails.appendChild(keyAdvLabel);
+		const keyAdvInput = document.createElement('input');
+		keyAdvInput.id = 'supabase-key-input';
+		keyAdvInput.type = 'password';
+		advancedDetails.appendChild(keyAdvInput);
+
+		const advBtnsRow = document.createElement('div');
+		advBtnsRow.style.display = 'flex';
+		advBtnsRow.style.gap = '8px';
+		advBtnsRow.style.marginTop = '10px';
+
+		const saveCfgBtn = document.createElement('button');
+		saveCfgBtn.textContent = 'Save Custom Connection';
+		saveCfgBtn.className = 'custom-dialog-btn';
+		saveCfgBtn.onclick = async () => {
+			await GeminiSync.setSupabaseConfig(urlInput.value, keyAdvInput.value);
+			displayMessage("Custom Supabase connection saved!", false);
+		};
+
+		const resetCfgBtn = document.createElement('button');
+		resetCfgBtn.textContent = 'Reset to Default Supabase Project';
+		resetCfgBtn.className = 'custom-dialog-btn';
+		resetCfgBtn.onclick = async () => {
+			await GeminiSync.resetSupabaseConfig();
+			urlInput.value = GeminiSync.DEFAULT_SUPABASE_URL;
+			keyAdvInput.value = GeminiSync.DEFAULT_SUPABASE_KEY;
+			displayMessage("Reset to default Supabase project.", false);
+		};
+
+		advBtnsRow.appendChild(saveCfgBtn);
+		advBtnsRow.appendChild(resetCfgBtn);
+		advancedDetails.appendChild(advBtnsRow);
+
+		tabSync.appendChild(advancedDetails);
+		content.appendChild(tabSync);
 
 
 		// --- TAB 3: RESET ---
@@ -1143,12 +1155,16 @@
 		resetAllBtn.className = 'custom-dialog-btn dialog-btn-delete';
 		resetAllBtn.style.backgroundColor = '#cc2929'; // Redder
 		resetAllBtn.addEventListener('click', () => {
-			showConfirm("Are you sure? This will execute a full factory reset of the userscript, including Toolbar items, Folders, and Google Drive connection.", async () => {
+			showConfirm("Are you sure? This will execute a full factory reset of the userscript, including Toolbar items, Folders, and Sync configuration.", async () => {
 				await GM_deleteValue(STORAGE_KEY_TOOLBAR_ITEMS);
 				await GM_deleteValue(STORAGE_KEY_FOLDERS);
 				await GM_deleteValue(STORAGE_KEY_CONVO_FOLDERS);
-				await GM_deleteValue(STORAGE_KEY_GDRIVE_TOKEN);
-				await GM_deleteValue(STORAGE_KEY_GDRIVE_CLIENT_ID);
+				await GM_deleteValue(STORAGE_KEY_SYNC_KEY);
+				await GM_deleteValue(STORAGE_KEY_AUTH_SESSION);
+				await GM_deleteValue(STORAGE_KEY_SUPABASE_URL);
+				await GM_deleteValue(STORAGE_KEY_SUPABASE_KEY);
+				await GM_deleteValue(STORAGE_KEY_LAST_SYNC);
+				await GM_deleteValue(STORAGE_KEY_LAST_SYNC_CLIENT);
 				location.reload();
 			}, "FACTORY RESET", "dialog-btn-delete");
 		});
@@ -1169,22 +1185,55 @@
 		});
 	}
 
-	function populateSettingsPanel(panel) {
+	async function updateSettingsPanelSyncStatus() {
+		const statusText = document.getElementById('sync-status-text');
+		const lastTimeText = document.getElementById('sync-last-time-text');
+		const loggedInBox = document.getElementById('sync-auth-logged-in');
+		const loggedOutBox = document.getElementById('sync-auth-logged-out');
+		const userEmailEl = document.getElementById('sync-user-email');
+		if (!statusText) return;
+
+		const isAuth = await GeminiSync.isAuthenticated();
+		const user = await GeminiSync.getCurrentUser();
+
+		if (isAuth && user) {
+			statusText.textContent = `Status: Connected as ${user.email} ✅`;
+			statusText.style.color = "#81c995";
+			if (userEmailEl) userEmailEl.textContent = user.email;
+			if (loggedInBox) loggedInBox.style.display = 'block';
+			if (loggedOutBox) loggedOutBox.style.display = 'none';
+		} else {
+			statusText.textContent = "Status: Not logged in (Authentication required) 🔒";
+			statusText.style.color = "#f2994a";
+			if (loggedInBox) loggedInBox.style.display = 'none';
+			if (loggedOutBox) loggedOutBox.style.display = 'block';
+		}
+
+		if (lastTimeText) {
+			const { timestamp, client } = await GeminiSync.getLastSyncInfo();
+			if (timestamp) {
+				lastTimeText.textContent = `Last synchronized: ${new Date(timestamp).toLocaleString()} (${client || 'Cloud'})`;
+			} else {
+				lastTimeText.textContent = "Never synchronized yet.";
+			}
+		}
+	}
+
+	async function populateSettingsPanel(panel) {
 		const container = panel.querySelector('#toolbar-items-container');
 		if (!container) return; // Should not happen
 		clearEl(container);
 
 		toolbarItems.forEach(item => addItemToPanel(container, item));
 
-		// Populate Client ID if exists
-		const clientIdInput = document.getElementById('gdrive-client-id-input');
-		if (clientIdInput) {
-			GeminiMod.drive.getGoogleDriveClientId().then(id => {
-				if (id) clientIdInput.value = id;
-			});
+		const urlInput = document.getElementById('supabase-url-input');
+		const keyAdvInput = document.getElementById('supabase-key-input');
+		if (urlInput && keyAdvInput) {
+			const cfg = await GeminiSync.getSupabaseConfig();
+			urlInput.value = cfg.url;
+			keyAdvInput.value = cfg.key;
 		}
-		// Update Status
-		updateSettingsPanelDriveStatus();
+		await updateSettingsPanelSyncStatus();
 	}
 
 	function addItemToPanel(container, item) {
@@ -2189,18 +2238,8 @@
 
 
 
-		// Inject Styles (Using Module)
+		// Inject Styles
 		injectCSS();
-
-		// Handle Drive Auth Callback (if this is a popup)
-		GeminiMod.drive.handleAuthCallback();
-
-		// Setup Drive Message Listener (for main window)
-		// Pass a callback to update UI if settings panel is open
-		GeminiMod.drive.setupAuthMessageListener(() => {
-			updateSettingsPanelDriveStatus();
-		});
-
 
 		await loadConfiguration();
 
