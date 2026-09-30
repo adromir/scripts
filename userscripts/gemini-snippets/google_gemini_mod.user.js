@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.29
+// @version       0.0.30
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -10,6 +10,7 @@
 // @icon          https://raw.githubusercontent.com/adromir/google-gemini-mod/refs/heads/main/icon.svg
 // @supportURL    https://github.com/adromir/scripts/issues
 // @grant         GM_addStyle
+// @grant         GM_addElement
 // @grant         GM_setValue
 // @grant         GM_getValue
 // @grant         GM_deleteValue
@@ -639,7 +640,7 @@
 		dialogBox.appendChild(h3);
 
 		const p1 = document.createElement('p');
-		p1.innerHTML = ''; // Clear just in case, though new element is empty
+		p1.textContent = '';
 		p1.appendChild(document.createTextNode('To sync explicitly via Google Drive, you need a '));
 		const b1 = document.createElement('b');
 		b1.textContent = 'Google Cloud Client ID';
@@ -1492,7 +1493,9 @@
 		svg.style.display = 'block';
 		svg.style.transition = 'transform 0.2s ease';
 		svg.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(-90deg)';
-		svg.innerHTML = '<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>';
+		const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		path.setAttribute('d', 'M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z');
+		svg.appendChild(path);
 		return svg;
 	}
 
