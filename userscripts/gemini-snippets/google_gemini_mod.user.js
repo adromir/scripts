@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.31
+// @version       0.0.32
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -708,7 +708,12 @@
 		panel.id = 'gemini-mod-settings-panel';
 		overlay.appendChild(panel);
 
-		panel.appendChild(document.createElement('h2')).textContent = 'Gemini Mod Settings';
+		const header = document.createElement('div');
+		header.className = 'settings-header';
+		const title = document.createElement('h2');
+		title.textContent = 'Gemini Mod Settings';
+		header.appendChild(title);
+		panel.appendChild(header);
 
 		// Create Container for Tabbed Layout
 		const container = document.createElement('div');
@@ -742,19 +747,15 @@
 
 		// Footer Buttons Container
 		const sidebarFooter = document.createElement('div');
-		sidebarFooter.style.marginTop = 'auto'; // Pushes to bottom
-		sidebarFooter.style.display = 'flex';
-		sidebarFooter.style.flexDirection = 'column';
-		sidebarFooter.style.gap = '10px';
-		sidebarFooter.style.width = '100%';
+		sidebarFooter.className = 'settings-sidebar-footer';
 
 		// Close Button
 		const closeButton = document.createElement('button');
 		closeButton.textContent = 'Close';
 		closeButton.className = 'custom-dialog-btn dialog-btn-cancel';
 		closeButton.style.width = '100%';
-		closeButton.style.boxSizing = 'border-box'; // Ensure padding handles correctly
-		closeButton.style.margin = '0'; // Override default class margin
+		closeButton.style.boxSizing = 'border-box';
+		closeButton.style.margin = '0';
 		closeButton.addEventListener('click', () => toggleSettingsPanel(false));
 		sidebarFooter.appendChild(closeButton);
 
@@ -764,8 +765,8 @@
 		saveBtnClose.className = 'custom-dialog-btn dialog-btn-confirm';
 		saveBtnClose.style.width = '100%';
 		saveBtnClose.style.boxSizing = 'border-box';
-		saveBtnClose.style.margin = '0'; // Override default class margin
-		saveBtnClose.addEventListener('click', saveToolbarConfiguration); // Logic handles closing
+		saveBtnClose.style.margin = '0';
+		saveBtnClose.addEventListener('click', saveToolbarConfiguration);
 		sidebarFooter.appendChild(saveBtnClose);
 
 		sidebar.appendChild(sidebarFooter);
@@ -802,15 +803,13 @@
 		tabSync.className = 'tab-pane';
 
 		const syncHeading = document.createElement('h3');
+		syncHeading.className = 'sync-heading';
 		syncHeading.textContent = 'Cloud Synchronization (Supabase)';
-		syncHeading.style.marginTop = '0';
 		tabSync.appendChild(syncHeading);
 
 		const syncDesc = document.createElement('p');
+		syncDesc.className = 'sync-subheading';
 		syncDesc.textContent = 'Synchronize toolbar items, folders, and conversation mappings between Ferdium, browser userscripts, and across devices.';
-		syncDesc.style.fontSize = '13px';
-		syncDesc.style.color = '#aaa';
-		syncDesc.style.marginTop = '-5px';
 		tabSync.appendChild(syncDesc);
 
 		// Status card
@@ -919,34 +918,37 @@
 		authNotice.textContent = '🛡️ Multi-User Protection: Log in with your email and password to securely access your settings. Each user\'s configuration is strictly isolated with Row-Level Security.';
 		loggedOutBox.appendChild(authNotice);
 
+		const emailGroup = document.createElement('div');
+		emailGroup.className = 'sync-input-group';
 		const emailLabel = document.createElement('label');
 		emailLabel.textContent = 'Email:';
-		loggedOutBox.appendChild(emailLabel);
+		emailGroup.appendChild(emailLabel);
 
 		const emailInput = document.createElement('input');
 		emailInput.id = 'sync-email-input';
 		emailInput.type = 'email';
 		emailInput.placeholder = 'your.email@example.com';
-		loggedOutBox.appendChild(emailInput);
+		emailGroup.appendChild(emailInput);
+		loggedOutBox.appendChild(emailGroup);
 
+		const passGroup = document.createElement('div');
+		passGroup.className = 'sync-input-group';
 		const passLabel = document.createElement('label');
 		passLabel.textContent = 'Password:';
-		loggedOutBox.appendChild(passLabel);
+		passGroup.appendChild(passLabel);
 
 		const passRow = document.createElement('div');
-		passRow.className = 'sync-auth-row';
+		passRow.className = 'sync-password-wrapper';
 
 		const passInput = document.createElement('input');
 		passInput.id = 'sync-password-input';
 		passInput.type = 'password';
 		passInput.placeholder = 'Password (min. 6 characters)';
-		passInput.style.flexGrow = '1';
 
 		const togglePassBtn = document.createElement('button');
 		togglePassBtn.textContent = '👁️';
-		togglePassBtn.className = 'custom-dialog-btn';
-		togglePassBtn.style.padding = '4px 8px';
-		togglePassBtn.style.margin = '0';
+		togglePassBtn.type = 'button';
+		togglePassBtn.className = 'sync-password-toggle-btn';
 		togglePassBtn.title = 'Toggle Password Visibility';
 		togglePassBtn.onclick = () => {
 			passInput.type = passInput.type === 'password' ? 'text' : 'password';
@@ -954,7 +956,8 @@
 
 		passRow.appendChild(passInput);
 		passRow.appendChild(togglePassBtn);
-		loggedOutBox.appendChild(passRow);
+		passGroup.appendChild(passRow);
+		loggedOutBox.appendChild(passGroup);
 
 		const authBtnsRow = document.createElement('div');
 		authBtnsRow.className = 'sync-auth-btns';
@@ -986,7 +989,7 @@
 
 		const signupBtn = document.createElement('button');
 		signupBtn.textContent = '✨ Sign Up';
-		signupBtn.className = 'custom-dialog-btn';
+		signupBtn.className = 'custom-dialog-btn sync-btn-secondary';
 		signupBtn.title = 'Create a new sync account with this email and password';
 		signupBtn.onclick = async () => {
 			const email = emailInput.value.trim();
@@ -1015,34 +1018,30 @@
 		loggedOutBox.appendChild(authBtnsRow);
 
 		const signupHelp = document.createElement('p');
+		signupHelp.className = 'sync-help-text';
 		signupHelp.textContent = '💡 First time? Enter your email and password, then click "Sign Up" to create your personal account.';
-		signupHelp.style.fontSize = '12px';
-		signupHelp.style.color = '#8ab4f8';
-		signupHelp.style.margin = '10px 0 0 0';
 		loggedOutBox.appendChild(signupHelp);
 
 		tabSync.appendChild(loggedOutBox);
 
 		// Manual File Backup Section
 		const manualHeader = document.createElement('h3');
-		manualHeader.textContent = 'Manual File Backup';
+		manualHeader.textContent = '📁 Manual File Backup';
+		manualHeader.className = 'sync-heading';
+		manualHeader.style.marginTop = '26px';
 		tabSync.appendChild(manualHeader);
 
 		const manualDesc = document.createElement('p');
+		manualDesc.className = 'sync-subheading';
 		manualDesc.textContent = 'Export or import your complete configuration to/from a local .json file.';
-		manualDesc.style.fontSize = '12px';
-		manualDesc.style.color = '#aaa';
-		manualDesc.style.marginTop = '-5px';
 		tabSync.appendChild(manualDesc);
 
 		const fileRow = document.createElement('div');
-		fileRow.style.display = 'flex';
-		fileRow.style.gap = '10px';
-		fileRow.style.marginBottom = '20px';
+		fileRow.className = 'sync-file-row';
 
 		const exportBtn = document.createElement('button');
 		exportBtn.textContent = '⬇️ Export to File';
-		exportBtn.className = 'custom-dialog-btn';
+		exportBtn.className = 'custom-dialog-btn sync-btn-secondary';
 		exportBtn.onclick = () => {
 			GeminiSync.exportSettingsToFile({ toolbarItems, folders, conversationFolders });
 		};
@@ -1067,7 +1066,7 @@
 
 		const importBtn = document.createElement('button');
 		importBtn.textContent = '⬆️ Import from File';
-		importBtn.className = 'custom-dialog-btn';
+		importBtn.className = 'custom-dialog-btn sync-btn-secondary';
 		importBtn.onclick = () => importInput.click();
 
 		fileRow.appendChild(exportBtn);
@@ -1082,30 +1081,39 @@
 		advancedSummary.textContent = '⚙️ Advanced Supabase Connection Settings';
 		advancedDetails.appendChild(advancedSummary);
 
+		const advBody = document.createElement('div');
+		advBody.className = 'sync-advanced-body';
+
+		const urlGroup = document.createElement('div');
+		urlGroup.className = 'sync-input-group';
 		const urlLabel = document.createElement('label');
 		urlLabel.textContent = 'Supabase Project URL:';
-		advancedDetails.appendChild(urlLabel);
+		urlGroup.appendChild(urlLabel);
 		const urlInput = document.createElement('input');
 		urlInput.id = 'supabase-url-input';
 		urlInput.type = 'text';
-		advancedDetails.appendChild(urlInput);
+		urlGroup.appendChild(urlInput);
+		advBody.appendChild(urlGroup);
 
+		const keyAdvGroup = document.createElement('div');
+		keyAdvGroup.className = 'sync-input-group';
 		const keyAdvLabel = document.createElement('label');
 		keyAdvLabel.textContent = 'Supabase Anon/Publishable Key:';
-		advancedDetails.appendChild(keyAdvLabel);
+		keyAdvGroup.appendChild(keyAdvLabel);
 		const keyAdvInput = document.createElement('input');
 		keyAdvInput.id = 'supabase-key-input';
 		keyAdvInput.type = 'password';
-		advancedDetails.appendChild(keyAdvInput);
+		keyAdvGroup.appendChild(keyAdvInput);
+		advBody.appendChild(keyAdvGroup);
 
 		const advBtnsRow = document.createElement('div');
 		advBtnsRow.style.display = 'flex';
-		advBtnsRow.style.gap = '8px';
-		advBtnsRow.style.marginTop = '10px';
+		advBtnsRow.style.gap = '10px';
+		advBtnsRow.style.marginTop = '14px';
 
 		const saveCfgBtn = document.createElement('button');
 		saveCfgBtn.textContent = 'Save Custom Connection';
-		saveCfgBtn.className = 'custom-dialog-btn';
+		saveCfgBtn.className = 'custom-dialog-btn sync-btn-secondary';
 		saveCfgBtn.onclick = async () => {
 			await GeminiSync.setSupabaseConfig(urlInput.value, keyAdvInput.value);
 			displayMessage("Custom Supabase connection saved!", false);
@@ -1113,7 +1121,7 @@
 
 		const resetCfgBtn = document.createElement('button');
 		resetCfgBtn.textContent = 'Reset to Default Supabase Project';
-		resetCfgBtn.className = 'custom-dialog-btn';
+		resetCfgBtn.className = 'custom-dialog-btn sync-btn-secondary';
 		resetCfgBtn.onclick = async () => {
 			await GeminiSync.resetSupabaseConfig();
 			urlInput.value = GeminiSync.DEFAULT_SUPABASE_URL;
@@ -1123,7 +1131,8 @@
 
 		advBtnsRow.appendChild(saveCfgBtn);
 		advBtnsRow.appendChild(resetCfgBtn);
-		advancedDetails.appendChild(advBtnsRow);
+		advBody.appendChild(advBtnsRow);
+		advancedDetails.appendChild(advBody);
 
 		tabSync.appendChild(advancedDetails);
 		content.appendChild(tabSync);
