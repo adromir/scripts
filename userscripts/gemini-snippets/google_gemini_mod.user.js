@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          Google Gemini Mod (Toolbar, Folders & Download)
 // @namespace     http://tampermonkey.net/
-// @version       0.0.32
+// @version       0.0.33
 // @description   Enhances Google Gemini with a configurable toolbar and sidebar folders to organize conversations.
 // @description[de] Verbessert Google Gemini mit einer konfigurierbaren Symbolleiste und Ordnern in der Seitenleiste, um Konversationen zu organisieren.
 // @author        Adromir
@@ -18,7 +18,7 @@
 // @grant         unsafeWindow
 // @require       https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js
 // @require       https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js
-// @require       https://update.greasyfork.org/scripts/584958/gemini_mod_styles.js
+// @require       https://update.greasyfork.org/scripts/584958/gemini_mod_styles.js?v=0.0.33
 // @require       https://update.greasyfork.org/scripts/584959/gemini_mod_utils.js
 // @downloadURL   https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
 // @updateURL     https://github.com/adromir/scripts/raw/refs/heads/main/userscripts/gemini-snippets/google_gemini_mod.user.js
@@ -104,18 +104,109 @@
 	const showPrompt = GeminiMod.utils.showCustomPromptDialog;
 	const showColorPicker = GeminiMod.utils.showColorPickerDialog;
 	const injectCSS = function () {
+		const settingsCSS = `
+			#gemini-mod-settings-panel {
+				width: 90vw !important; max-width: 860px !important;
+				height: 620px !important; max-height: 85vh !important;
+				display: flex !important; flex-direction: column !important; overflow: hidden !important;
+			}
+			#gemini-mod-settings-panel .settings-container {
+				display: flex !important; flex: 1 1 0% !important; min-height: 0 !important;
+				height: calc(100% - 57px) !important; overflow: hidden !important;
+			}
+			#gemini-mod-settings-panel .settings-sidebar {
+				width: 240px !important; min-width: 240px !important; flex-shrink: 0 !important;
+				border-right: 1px solid #3c4043 !important; padding: 16px 12px !important;
+				display: flex !important; flex-direction: column !important; gap: 8px !important;
+				background-color: #1e2022 !important; box-sizing: border-box !important; overflow-y: auto !important;
+			}
+			#gemini-mod-settings-panel .tab-btn {
+				display: flex !important; align-items: center !important; gap: 10px !important; text-align: left !important;
+				padding: 10px 14px !important; background: transparent !important; border: none !important;
+				color: #9aa0a6 !important; cursor: pointer !important; border-radius: 8px !important;
+				font-size: 14px !important; font-weight: 500 !important; white-space: nowrap !important;
+				width: 100% !important; box-sizing: border-box !important;
+				transition: background-color 0.15s ease, color 0.15s ease !important;
+			}
+			#gemini-mod-settings-panel .tab-btn:hover { background-color: rgba(255, 255, 255, 0.08) !important; color: #e3e3e3 !important; }
+			#gemini-mod-settings-panel .tab-btn.active { background-color: #1a73e8 !important; color: #ffffff !important; font-weight: 600 !important; }
+			#gemini-mod-settings-panel .settings-sidebar-footer {
+				margin-top: auto !important; display: flex !important; flex-direction: column !important;
+				gap: 10px !important; width: 100% !important; padding-top: 14px !important;
+				border-top: 1px solid #3c4043 !important; box-sizing: border-box !important; flex-shrink: 0 !important;
+			}
+			#gemini-mod-settings-panel .settings-sidebar-footer button {
+				width: 100% !important; height: 38px !important; box-sizing: border-box !important; margin: 0 !important;
+				border-radius: 8px !important; font-size: 13px !important; cursor: pointer !important;
+				display: inline-flex !important; align-items: center !important; justify-content: center !important;
+				transition: background-color 0.15s ease !important;
+			}
+			#gemini-mod-settings-panel .settings-sidebar-footer .dialog-btn-cancel {
+				background-color: #353739 !important; color: #e3e3e3 !important;
+				border: 1px solid #5f6368 !important; font-weight: 500 !important;
+			}
+			#gemini-mod-settings-panel .settings-sidebar-footer .dialog-btn-cancel:hover { background-color: #4a4e51 !important; }
+			#gemini-mod-settings-panel .settings-sidebar-footer .dialog-btn-confirm {
+				background-color: #8ab4f8 !important; color: #1f1f1f !important;
+				border: none !important; font-weight: 600 !important;
+			}
+			#gemini-mod-settings-panel .settings-sidebar-footer .dialog-btn-confirm:hover { background-color: #aecbfa !important; }
+			#gemini-mod-settings-panel .settings-content {
+				flex: 1 1 auto !important; height: 100% !important; min-height: 0 !important;
+				padding: 24px 28px !important; overflow-y: auto !important;
+				background-color: #242628 !important; box-sizing: border-box !important;
+			}
+			#gemini-mod-settings-panel .sync-heading {
+				margin: 0 0 6px 0 !important; font-size: 1.15rem !important; font-weight: 600 !important; color: #e3e3e3 !important;
+			}
+			#gemini-mod-settings-panel .sync-subheading {
+				font-size: 13px !important; color: #9aa0a6 !important; margin: 0 0 18px 0 !important; line-height: 1.4 !important;
+			}
+			#gemini-mod-settings-panel .sync-status-card {
+				background-color: #1a1c1e !important; border: 1px solid #3c4043 !important; border-radius: 12px !important;
+				padding: 16px 20px !important; margin-bottom: 20px !important; display: flex !important;
+				flex-direction: column !important; gap: 4px !important; box-sizing: border-box !important;
+			}
+			#gemini-mod-settings-panel .sync-auth-box {
+				background-color: #1e2022 !important; border: 1px solid #3c4043 !important; border-radius: 12px !important;
+				padding: 20px !important; margin-bottom: 22px !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+				box-sizing: border-box !important;
+			}
+			#gemini-mod-settings-panel .sync-input-group { margin-bottom: 14px !important; width: 100% !important; max-width: 480px !important; }
+			#gemini-mod-settings-panel .sync-input-group label { display: block !important; margin: 0 0 6px 0 !important; font-size: 13px !important; font-weight: 500 !important; color: #c4c7c5 !important; }
+			#gemini-mod-settings-panel .sync-input-group input {
+				width: 100% !important; max-width: 480px !important; height: 40px !important; padding: 8px 12px !important;
+				border-radius: 8px !important; border: 1px solid #5f6368 !important; background-color: #282a2c !important;
+				color: #e3e3e3 !important; box-sizing: border-box !important; font-size: 14px !important; outline: none !important;
+			}
+			#gemini-mod-settings-panel .sync-password-wrapper { display: flex !important; align-items: center !important; gap: 8px !important; width: 100% !important; max-width: 480px !important; box-sizing: border-box !important; }
+			#gemini-mod-settings-panel .sync-password-wrapper input {
+				flex: 1 1 auto !important; min-width: 0 !important; width: 100% !important; height: 40px !important;
+				padding: 8px 12px !important; border-radius: 8px !important; border: 1px solid #5f6368 !important;
+				background-color: #282a2c !important; color: #e3e3e3 !important; box-sizing: border-box !important;
+				font-size: 14px !important; outline: none !important;
+			}
+			#gemini-mod-settings-panel .sync-password-toggle-btn {
+				height: 40px !important; width: 42px !important; min-width: 42px !important; padding: 0 !important;
+				background-color: #353739 !important; border: 1px solid #5f6368 !important; border-radius: 8px !important;
+				color: #e3e3e3 !important; cursor: pointer !important; display: inline-flex !important;
+				align-items: center !important; justify-content: center !important; font-size: 16px !important; flex-shrink: 0 !important;
+				box-sizing: border-box !important;
+			}
+		`;
+		const fullCSS = (window.GeminiMod.styles || '') + '\n' + settingsCSS;
 		try {
 			if (typeof GM_addStyle !== 'undefined') {
-				GM_addStyle(window.GeminiMod.styles);
+				GM_addStyle(fullCSS);
 			} else {
 				const style = document.createElement('style');
-				style.textContent = window.GeminiMod.styles;
+				style.textContent = fullCSS;
 				document.head.appendChild(style);
 			}
 		} catch (error) {
 			console.error("Gemini Mod Userscript: Failed to inject custom CSS:", error);
 			const style = document.createElement('style');
-			style.textContent = window.GeminiMod.styles;
+			style.textContent = fullCSS;
 			document.head.appendChild(style);
 		}
 	};
@@ -703,25 +794,31 @@
 
 		const overlay = document.createElement('div');
 		overlay.id = 'gemini-mod-settings-overlay';
+		overlay.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 999999;';
 
 		const panel = document.createElement('div');
 		panel.id = 'gemini-mod-settings-panel';
+		panel.style.cssText = 'position: fixed !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important; width: 90vw !important; max-width: 860px !important; height: 620px !important; max-height: 85vh !important; background-color: #202124 !important; color: #e3e3e3 !important; border-radius: 16px !important; border: 1px solid #3c4043 !important; box-shadow: 0 16px 40px rgba(0,0,0,0.6) !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; padding: 0 !important; font-family: "Google Sans Flex", "Google Sans", Roboto, Arial, sans-serif !important; z-index: 1000000 !important; box-sizing: border-box !important;';
 		overlay.appendChild(panel);
 
 		const header = document.createElement('div');
 		header.className = 'settings-header';
+		header.style.cssText = 'display: flex !important; align-items: center !important; justify-content: space-between !important; padding: 16px 24px !important; border-bottom: 1px solid #3c4043 !important; background-color: #242628 !important; margin: 0 !important; flex-shrink: 0 !important;';
 		const title = document.createElement('h2');
 		title.textContent = 'Gemini Mod Settings';
+		title.style.cssText = 'margin: 0 !important; padding: 0 !important; font-size: 1.2rem !important; font-weight: 600 !important; color: #e3e3e3 !important; border: none !important;';
 		header.appendChild(title);
 		panel.appendChild(header);
 
 		// Create Container for Tabbed Layout
 		const container = document.createElement('div');
 		container.className = 'settings-container';
+		container.style.cssText = 'display: flex !important; flex: 1 1 0% !important; height: calc(100% - 57px) !important; min-height: 0 !important; overflow: hidden !important;';
 
 		// --- SIDEBAR ---
 		const sidebar = document.createElement('div');
 		sidebar.className = 'settings-sidebar';
+		sidebar.style.cssText = 'width: 240px !important; min-width: 240px !important; flex-shrink: 0 !important; border-right: 1px solid #3c4043 !important; padding: 16px 12px !important; display: flex !important; flex-direction: column !important; gap: 8px !important; background-color: #1e2022 !important; box-sizing: border-box !important; overflow-y: auto !important;';
 
 		const tabs = [
 			{ id: 'tab-toolbar', label: '🛠️ Toolbar' },
@@ -734,28 +831,42 @@
 			btn.className = 'tab-btn' + (index === 0 ? ' active' : '');
 			btn.textContent = tab.label;
 			btn.dataset.target = tab.id;
+			btn.style.cssText = `display: flex !important; align-items: center !important; gap: 10px !important; text-align: left !important; padding: 10px 14px !important; background-color: ${index === 0 ? '#1a73e8' : 'transparent'} !important; border: none !important; color: ${index === 0 ? '#ffffff' : '#9aa0a6'} !important; cursor: pointer !important; border-radius: 8px !important; font-size: 14px !important; font-weight: ${index === 0 ? '600' : '500'} !important; white-space: nowrap !important; width: 100% !important; box-sizing: border-box !important; transition: background-color 0.15s ease, color 0.15s ease !important;`;
 			btn.onclick = () => {
-				document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-				document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+				document.querySelectorAll('.tab-btn').forEach(b => {
+					b.classList.remove('active');
+					b.style.backgroundColor = 'transparent';
+					b.style.color = '#9aa0a6';
+					b.style.fontWeight = '500';
+				});
+				document.querySelectorAll('.tab-pane').forEach(p => {
+					p.classList.remove('active');
+					p.style.display = 'none';
+				});
 				btn.classList.add('active');
+				btn.style.backgroundColor = '#1a73e8';
+				btn.style.color = '#ffffff';
+				btn.style.fontWeight = '600';
 				const targetPane = document.getElementById(tab.id);
-				if (targetPane) targetPane.classList.add('active');
+				if (targetPane) {
+					targetPane.classList.add('active');
+					targetPane.style.display = 'block';
+				}
 				if (tab.id === 'tab-sync') updateSettingsPanelSyncStatus();
 			};
 			sidebar.appendChild(btn);
 		});
 
-		// Footer Buttons Container
+		// Footer Buttons Container (pinned strictly to bottom of sidebar)
 		const sidebarFooter = document.createElement('div');
 		sidebarFooter.className = 'settings-sidebar-footer';
+		sidebarFooter.style.cssText = 'margin-top: auto !important; display: flex !important; flex-direction: column !important; gap: 10px !important; width: 100% !important; padding-top: 14px !important; border-top: 1px solid #3c4043 !important; box-sizing: border-box !important; flex-shrink: 0 !important;';
 
 		// Close Button
 		const closeButton = document.createElement('button');
 		closeButton.textContent = 'Close';
 		closeButton.className = 'custom-dialog-btn dialog-btn-cancel';
-		closeButton.style.width = '100%';
-		closeButton.style.boxSizing = 'border-box';
-		closeButton.style.margin = '0';
+		closeButton.style.cssText = 'width: 100% !important; height: 38px !important; box-sizing: border-box !important; margin: 0 !important; background-color: #353739 !important; color: #e3e3e3 !important; border: 1px solid #5f6368 !important; border-radius: 8px !important; font-weight: 500 !important; font-size: 13px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; transition: background-color 0.15s ease !important;';
 		closeButton.addEventListener('click', () => toggleSettingsPanel(false));
 		sidebarFooter.appendChild(closeButton);
 
@@ -763,9 +874,7 @@
 		const saveBtnClose = document.createElement('button');
 		saveBtnClose.textContent = 'Save & Close';
 		saveBtnClose.className = 'custom-dialog-btn dialog-btn-confirm';
-		saveBtnClose.style.width = '100%';
-		saveBtnClose.style.boxSizing = 'border-box';
-		saveBtnClose.style.margin = '0';
+		saveBtnClose.style.cssText = 'width: 100% !important; height: 38px !important; box-sizing: border-box !important; margin: 0 !important; background-color: #8ab4f8 !important; color: #1f1f1f !important; border: none !important; border-radius: 8px !important; font-weight: 600 !important; font-size: 13px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; transition: background-color 0.15s ease !important;';
 		saveBtnClose.addEventListener('click', saveToolbarConfiguration);
 		sidebarFooter.appendChild(saveBtnClose);
 
@@ -776,17 +885,19 @@
 		// Content Area
 		const content = document.createElement('div');
 		content.className = 'settings-content';
+		content.style.cssText = 'flex: 1 1 auto !important; height: 100% !important; min-height: 0 !important; padding: 24px 28px !important; overflow-y: auto !important; background-color: #242628 !important; box-sizing: border-box !important;';
 
 		// --- TAB 1: TOOLBAR ---
 		const tabToolbar = document.createElement('div');
 		tabToolbar.id = 'tab-toolbar';
 		tabToolbar.className = 'tab-pane active';
+		tabToolbar.style.display = 'block';
 
 		// Add Item Button
 		const addItemBtn = document.createElement('button');
 		addItemBtn.textContent = '+ Add New Item';
 		addItemBtn.className = 'custom-dialog-btn dialog-btn-confirm';
-		addItemBtn.style.marginBottom = '20px';
+		addItemBtn.style.cssText = 'background-color: #8ab4f8 !important; color: #1f1f1f !important; font-weight: 600 !important; border: none !important; border-radius: 8px !important; padding: 0 20px !important; height: 38px !important; font-size: 14px !important; cursor: pointer !important; margin-bottom: 20px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important;';
 		addItemBtn.addEventListener('click', showAddItemModal);
 		tabToolbar.appendChild(addItemBtn);
 
@@ -801,29 +912,34 @@
 		const tabSync = document.createElement('div');
 		tabSync.id = 'tab-sync';
 		tabSync.className = 'tab-pane';
+		tabSync.style.display = 'none';
 
 		const syncHeading = document.createElement('h3');
 		syncHeading.className = 'sync-heading';
 		syncHeading.textContent = 'Cloud Synchronization (Supabase)';
+		syncHeading.style.cssText = 'margin: 0 0 6px 0 !important; font-size: 1.15rem !important; font-weight: 600 !important; color: #e3e3e3 !important; border: none !important;';
 		tabSync.appendChild(syncHeading);
 
 		const syncDesc = document.createElement('p');
 		syncDesc.className = 'sync-subheading';
 		syncDesc.textContent = 'Synchronize toolbar items, folders, and conversation mappings between Ferdium, browser userscripts, and across devices.';
+		syncDesc.style.cssText = 'font-size: 13px !important; color: #9aa0a6 !important; margin: 0 0 18px 0 !important; line-height: 1.4 !important;';
 		tabSync.appendChild(syncDesc);
 
 		// Status card
 		const statusCard = document.createElement('div');
 		statusCard.className = 'sync-status-card';
+		statusCard.style.cssText = 'background-color: #1a1c1e !important; border: 1px solid #3c4043 !important; border-radius: 12px !important; padding: 16px 20px !important; margin-bottom: 20px !important; display: flex !important; flex-direction: column !important; gap: 4px !important; box-sizing: border-box !important;';
 		const statusTitle = document.createElement('div');
 		statusTitle.id = 'sync-status-text';
 		statusTitle.className = 'sync-status-title';
 		statusTitle.textContent = 'Status: Checking...';
-		statusTitle.style.color = '#8ab4f8';
+		statusTitle.style.cssText = 'font-size: 14px !important; font-weight: 600 !important; margin: 0 !important; display: flex !important; align-items: center !important; gap: 8px !important; color: #8ab4f8 !important;';
 		const statusDetail = document.createElement('div');
 		statusDetail.id = 'sync-last-time-text';
 		statusDetail.className = 'sync-status-detail';
 		statusDetail.textContent = '';
+		statusDetail.style.cssText = 'font-size: 12px !important; color: #9aa0a6 !important; margin: 0 !important;';
 		statusCard.appendChild(statusTitle);
 		statusCard.appendChild(statusDetail);
 		tabSync.appendChild(statusCard);
@@ -835,9 +951,11 @@
 
 		const userCard = document.createElement('div');
 		userCard.className = 'sync-user-card';
+		userCard.style.cssText = 'display: flex !important; align-items: center !important; justify-content: space-between !important; background-color: #1a1c1e !important; border: 1px solid #3c4043 !important; border-radius: 12px !important; padding: 14px 18px !important; margin-bottom: 18px !important; box-sizing: border-box !important;';
 
 		const userInfo = document.createElement('div');
 		userInfo.className = 'sync-user-info';
+		userInfo.style.cssText = 'display: flex !important; align-items: center !important; gap: 10px !important; font-size: 14px !important; color: #e3e3e3 !important; font-weight: 500 !important;';
 		const userIcon = document.createElement('span');
 		userIcon.textContent = '👤';
 		const userEmail = document.createElement('span');
@@ -850,6 +968,7 @@
 		logoutBtn.textContent = '🚪 Log Out';
 		logoutBtn.className = 'custom-dialog-btn dialog-btn-delete';
 		logoutBtn.title = 'Log out of Supabase on this device';
+		logoutBtn.style.cssText = 'background-color: #d93025 !important; color: #ffffff !important; border: none !important; border-radius: 8px !important; padding: 8px 16px !important; font-size: 13px !important; font-weight: 500 !important; cursor: pointer !important;';
 		logoutBtn.onclick = async () => {
 			await GeminiSync.signOut();
 			await updateSettingsPanelSyncStatus();
@@ -863,11 +982,13 @@
 		// Sync Actions Box
 		const actionsBox = document.createElement('div');
 		actionsBox.className = 'sync-actions-box';
+		actionsBox.style.cssText = 'display: flex !important; gap: 12px !important; flex-wrap: wrap !important; margin-top: 16px !important; margin-bottom: 24px !important;';
 
 		const uploadBtn = document.createElement('button');
 		uploadBtn.textContent = '☁️ Upload to Cloud (Backup)';
 		uploadBtn.className = 'custom-dialog-btn sync-btn-primary';
 		uploadBtn.title = 'Upload current settings and folders to Supabase';
+		uploadBtn.style.cssText = 'background-color: #8ab4f8 !important; color: #1f1f1f !important; font-weight: 600 !important; border: none !important; border-radius: 8px !important; padding: 0 20px !important; height: 38px !important; font-size: 14px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important;';
 		uploadBtn.onclick = async () => {
 			try {
 				await GeminiSync.saveToCloud({
@@ -886,6 +1007,7 @@
 		downloadBtn.textContent = '☁️ Download from Cloud (Sync)';
 		downloadBtn.className = 'custom-dialog-btn sync-btn-primary';
 		downloadBtn.title = 'Download settings and folders from Supabase and apply them';
+		downloadBtn.style.cssText = 'background-color: #8ab4f8 !important; color: #1f1f1f !important; font-weight: 600 !important; border: none !important; border-radius: 8px !important; padding: 0 20px !important; height: 38px !important; font-size: 14px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important;';
 		downloadBtn.onclick = async () => {
 			try {
 				const remote = await GeminiSync.loadFromCloud();
@@ -912,44 +1034,54 @@
 		const loggedOutBox = document.createElement('div');
 		loggedOutBox.id = 'sync-auth-logged-out';
 		loggedOutBox.className = 'sync-auth-box';
+		loggedOutBox.style.cssText = 'background-color: #1e2022 !important; border: 1px solid #3c4043 !important; border-radius: 12px !important; padding: 20px !important; margin-bottom: 22px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important; box-sizing: border-box !important;';
 
 		const authNotice = document.createElement('div');
 		authNotice.className = 'sync-auth-notice';
 		authNotice.textContent = '🛡️ Multi-User Protection: Log in with your email and password to securely access your settings. Each user\'s configuration is strictly isolated with Row-Level Security.';
+		authNotice.style.cssText = 'background-color: rgba(138, 180, 248, 0.08) !important; border: 1px solid rgba(138, 180, 248, 0.25) !important; border-radius: 8px !important; padding: 12px 14px !important; color: #8ab4f8 !important; font-size: 13px !important; line-height: 1.45 !important; margin-bottom: 16px !important;';
 		loggedOutBox.appendChild(authNotice);
 
 		const emailGroup = document.createElement('div');
 		emailGroup.className = 'sync-input-group';
+		emailGroup.style.cssText = 'margin-bottom: 14px !important; width: 100% !important; max-width: 480px !important;';
 		const emailLabel = document.createElement('label');
 		emailLabel.textContent = 'Email:';
+		emailLabel.style.cssText = 'display: block !important; margin: 0 0 6px 0 !important; font-size: 13px !important; font-weight: 500 !important; color: #c4c7c5 !important;';
 		emailGroup.appendChild(emailLabel);
 
 		const emailInput = document.createElement('input');
 		emailInput.id = 'sync-email-input';
 		emailInput.type = 'email';
 		emailInput.placeholder = 'your.email@example.com';
+		emailInput.style.cssText = 'width: 100% !important; max-width: 480px !important; height: 40px !important; padding: 8px 12px !important; border-radius: 8px !important; border: 1px solid #5f6368 !important; background-color: #282a2c !important; color: #e3e3e3 !important; box-sizing: border-box !important; font-size: 14px !important; outline: none !important; font-family: inherit !important; display: block !important;';
 		emailGroup.appendChild(emailInput);
 		loggedOutBox.appendChild(emailGroup);
 
 		const passGroup = document.createElement('div');
 		passGroup.className = 'sync-input-group';
+		passGroup.style.cssText = 'margin-bottom: 14px !important; width: 100% !important; max-width: 480px !important;';
 		const passLabel = document.createElement('label');
 		passLabel.textContent = 'Password:';
+		passLabel.style.cssText = 'display: block !important; margin: 0 0 6px 0 !important; font-size: 13px !important; font-weight: 500 !important; color: #c4c7c5 !important;';
 		passGroup.appendChild(passLabel);
 
 		const passRow = document.createElement('div');
 		passRow.className = 'sync-password-wrapper';
+		passRow.style.cssText = 'display: flex !important; align-items: center !important; gap: 8px !important; width: 100% !important; max-width: 480px !important; box-sizing: border-box !important;';
 
 		const passInput = document.createElement('input');
 		passInput.id = 'sync-password-input';
 		passInput.type = 'password';
 		passInput.placeholder = 'Password (min. 6 characters)';
+		passInput.style.cssText = 'flex: 1 1 auto !important; min-width: 0 !important; width: 100% !important; height: 40px !important; padding: 8px 12px !important; border-radius: 8px !important; border: 1px solid #5f6368 !important; background-color: #282a2c !important; color: #e3e3e3 !important; box-sizing: border-box !important; font-size: 14px !important; outline: none !important; font-family: inherit !important;';
 
 		const togglePassBtn = document.createElement('button');
 		togglePassBtn.textContent = '👁️';
 		togglePassBtn.type = 'button';
 		togglePassBtn.className = 'sync-password-toggle-btn';
 		togglePassBtn.title = 'Toggle Password Visibility';
+		togglePassBtn.style.cssText = 'height: 40px !important; width: 42px !important; min-width: 42px !important; padding: 0 !important; background-color: #353739 !important; border: 1px solid #5f6368 !important; border-radius: 8px !important; color: #e3e3e3 !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; font-size: 16px !important; flex-shrink: 0 !important; box-sizing: border-box !important;';
 		togglePassBtn.onclick = () => {
 			passInput.type = passInput.type === 'password' ? 'text' : 'password';
 		};
@@ -961,10 +1093,12 @@
 
 		const authBtnsRow = document.createElement('div');
 		authBtnsRow.className = 'sync-auth-btns';
+		authBtnsRow.style.cssText = 'display: flex !important; gap: 12px !important; margin-top: 18px !important; align-items: center !important;';
 
 		const loginBtn = document.createElement('button');
 		loginBtn.textContent = '🔑 Log In';
 		loginBtn.className = 'custom-dialog-btn sync-btn-primary';
+		loginBtn.style.cssText = 'background-color: #8ab4f8 !important; color: #1f1f1f !important; font-weight: 600 !important; border: none !important; border-radius: 8px !important; padding: 0 20px !important; height: 38px !important; font-size: 14px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; box-sizing: border-box !important;';
 		loginBtn.onclick = async () => {
 			const email = emailInput.value.trim();
 			const pass = passInput.value.trim();
@@ -991,6 +1125,7 @@
 		signupBtn.textContent = '✨ Sign Up';
 		signupBtn.className = 'custom-dialog-btn sync-btn-secondary';
 		signupBtn.title = 'Create a new sync account with this email and password';
+		signupBtn.style.cssText = 'background-color: #353739 !important; color: #e3e3e3 !important; font-weight: 500 !important; border: 1px solid #5f6368 !important; border-radius: 8px !important; padding: 0 18px !important; height: 38px !important; font-size: 14px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; box-sizing: border-box !important;';
 		signupBtn.onclick = async () => {
 			const email = emailInput.value.trim();
 			const pass = passInput.value.trim();
@@ -1020,6 +1155,7 @@
 		const signupHelp = document.createElement('p');
 		signupHelp.className = 'sync-help-text';
 		signupHelp.textContent = '💡 First time? Enter your email and password, then click "Sign Up" to create your personal account.';
+		signupHelp.style.cssText = 'font-size: 12px !important; color: #9aa0a6 !important; margin: 12px 0 0 0 !important; line-height: 1.4 !important;';
 		loggedOutBox.appendChild(signupHelp);
 
 		tabSync.appendChild(loggedOutBox);
@@ -1028,20 +1164,23 @@
 		const manualHeader = document.createElement('h3');
 		manualHeader.textContent = '📁 Manual File Backup';
 		manualHeader.className = 'sync-heading';
-		manualHeader.style.marginTop = '26px';
+		manualHeader.style.cssText = 'margin: 26px 0 6px 0 !important; font-size: 1.15rem !important; font-weight: 600 !important; color: #e3e3e3 !important; border-top: 1px solid #3c4043 !important; padding-top: 18px !important;';
 		tabSync.appendChild(manualHeader);
 
 		const manualDesc = document.createElement('p');
 		manualDesc.className = 'sync-subheading';
 		manualDesc.textContent = 'Export or import your complete configuration to/from a local .json file.';
+		manualDesc.style.cssText = 'font-size: 13px !important; color: #9aa0a6 !important; margin: 0 0 14px 0 !important; line-height: 1.4 !important;';
 		tabSync.appendChild(manualDesc);
 
 		const fileRow = document.createElement('div');
 		fileRow.className = 'sync-file-row';
+		fileRow.style.cssText = 'display: flex !important; gap: 12px !important; margin-bottom: 24px !important; align-items: center !important;';
 
 		const exportBtn = document.createElement('button');
 		exportBtn.textContent = '⬇️ Export to File';
 		exportBtn.className = 'custom-dialog-btn sync-btn-secondary';
+		exportBtn.style.cssText = 'background-color: #353739 !important; color: #e3e3e3 !important; font-weight: 500 !important; border: 1px solid #5f6368 !important; border-radius: 8px !important; padding: 0 18px !important; height: 38px !important; font-size: 14px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; margin: 0 !important; box-sizing: border-box !important;';
 		exportBtn.onclick = () => {
 			GeminiSync.exportSettingsToFile({ toolbarItems, folders, conversationFolders });
 		};
@@ -1067,6 +1206,7 @@
 		const importBtn = document.createElement('button');
 		importBtn.textContent = '⬆️ Import from File';
 		importBtn.className = 'custom-dialog-btn sync-btn-secondary';
+		importBtn.style.cssText = 'background-color: #353739 !important; color: #e3e3e3 !important; font-weight: 500 !important; border: 1px solid #5f6368 !important; border-radius: 8px !important; padding: 0 18px !important; height: 38px !important; font-size: 14px !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; margin: 0 !important; box-sizing: border-box !important;';
 		importBtn.onclick = () => importInput.click();
 
 		fileRow.appendChild(exportBtn);
@@ -1077,43 +1217,51 @@
 		// Advanced Supabase Connection
 		const advancedDetails = document.createElement('details');
 		advancedDetails.className = 'sync-advanced-details';
+		advancedDetails.style.cssText = 'margin-top: 20px !important; border-top: 1px solid #3c4043 !important; padding-top: 16px !important; margin-bottom: 20px !important;';
 		const advancedSummary = document.createElement('summary');
 		advancedSummary.textContent = '⚙️ Advanced Supabase Connection Settings';
+		advancedSummary.style.cssText = 'cursor: pointer !important; color: #8ab4f8 !important; font-size: 13px !important; font-weight: 500 !important; user-select: none !important; outline: none !important; padding: 4px 0 !important;';
 		advancedDetails.appendChild(advancedSummary);
 
 		const advBody = document.createElement('div');
 		advBody.className = 'sync-advanced-body';
+		advBody.style.cssText = 'margin-top: 14px !important; padding: 16px !important; background-color: #1e2022 !important; border: 1px solid #3c4043 !important; border-radius: 10px !important; box-sizing: border-box !important;';
 
 		const urlGroup = document.createElement('div');
 		urlGroup.className = 'sync-input-group';
+		urlGroup.style.cssText = 'margin-bottom: 14px !important; width: 100% !important; max-width: 480px !important;';
 		const urlLabel = document.createElement('label');
 		urlLabel.textContent = 'Supabase Project URL:';
+		urlLabel.style.cssText = 'display: block !important; margin: 0 0 6px 0 !important; font-size: 13px !important; font-weight: 500 !important; color: #c4c7c5 !important;';
 		urlGroup.appendChild(urlLabel);
 		const urlInput = document.createElement('input');
 		urlInput.id = 'supabase-url-input';
 		urlInput.type = 'text';
+		urlInput.style.cssText = 'width: 100% !important; max-width: 480px !important; height: 40px !important; padding: 8px 12px !important; border-radius: 8px !important; border: 1px solid #5f6368 !important; background-color: #282a2c !important; color: #e3e3e3 !important; box-sizing: border-box !important; font-size: 14px !important; outline: none !important; font-family: inherit !important; display: block !important;';
 		urlGroup.appendChild(urlInput);
 		advBody.appendChild(urlGroup);
 
 		const keyAdvGroup = document.createElement('div');
 		keyAdvGroup.className = 'sync-input-group';
+		keyAdvGroup.style.cssText = 'margin-bottom: 14px !important; width: 100% !important; max-width: 480px !important;';
 		const keyAdvLabel = document.createElement('label');
 		keyAdvLabel.textContent = 'Supabase Anon/Publishable Key:';
+		keyAdvLabel.style.cssText = 'display: block !important; margin: 0 0 6px 0 !important; font-size: 13px !important; font-weight: 500 !important; color: #c4c7c5 !important;';
 		keyAdvGroup.appendChild(keyAdvLabel);
 		const keyAdvInput = document.createElement('input');
 		keyAdvInput.id = 'supabase-key-input';
 		keyAdvInput.type = 'password';
+		keyAdvInput.style.cssText = 'width: 100% !important; max-width: 480px !important; height: 40px !important; padding: 8px 12px !important; border-radius: 8px !important; border: 1px solid #5f6368 !important; background-color: #282a2c !important; color: #e3e3e3 !important; box-sizing: border-box !important; font-size: 14px !important; outline: none !important; font-family: inherit !important; display: block !important;';
 		keyAdvGroup.appendChild(keyAdvInput);
 		advBody.appendChild(keyAdvGroup);
 
 		const advBtnsRow = document.createElement('div');
-		advBtnsRow.style.display = 'flex';
-		advBtnsRow.style.gap = '10px';
-		advBtnsRow.style.marginTop = '14px';
+		advBtnsRow.style.cssText = 'display: flex !important; gap: 10px !important; margin-top: 14px !important; align-items: center !important;';
 
 		const saveCfgBtn = document.createElement('button');
 		saveCfgBtn.textContent = 'Save Custom Connection';
 		saveCfgBtn.className = 'custom-dialog-btn sync-btn-secondary';
+		saveCfgBtn.style.cssText = 'background-color: #353739 !important; color: #e3e3e3 !important; font-weight: 500 !important; border: 1px solid #5f6368 !important; border-radius: 8px !important; padding: 0 16px !important; height: 36px !important; font-size: 13px !important; cursor: pointer !important; margin: 0 !important; box-sizing: border-box !important;';
 		saveCfgBtn.onclick = async () => {
 			await GeminiSync.setSupabaseConfig(urlInput.value, keyAdvInput.value);
 			displayMessage("Custom Supabase connection saved!", false);
@@ -1122,6 +1270,7 @@
 		const resetCfgBtn = document.createElement('button');
 		resetCfgBtn.textContent = 'Reset to Default Supabase Project';
 		resetCfgBtn.className = 'custom-dialog-btn sync-btn-secondary';
+		resetCfgBtn.style.cssText = 'background-color: #353739 !important; color: #e3e3e3 !important; font-weight: 500 !important; border: 1px solid #5f6368 !important; border-radius: 8px !important; padding: 0 16px !important; height: 36px !important; font-size: 13px !important; cursor: pointer !important; margin: 0 !important; box-sizing: border-box !important;';
 		resetCfgBtn.onclick = async () => {
 			await GeminiSync.resetSupabaseConfig();
 			urlInput.value = GeminiSync.DEFAULT_SUPABASE_URL;
@@ -1143,13 +1292,20 @@
 		tabReset.id = 'tab-reset';
 		tabReset.className = 'tab-pane';
 
-		tabReset.appendChild(document.createElement('h3')).textContent = 'Danger Zone';
+		const dangerHeading = document.createElement('h3');
+		dangerHeading.textContent = 'Danger Zone';
+		dangerHeading.style.cssText = 'margin: 0 0 8px 0 !important; font-size: 1.15rem !important; font-weight: 600 !important; color: #f28b82 !important; border: none !important;';
+		tabReset.appendChild(dangerHeading);
+
+		const dangerDesc = document.createElement('p');
+		dangerDesc.textContent = 'Irreversible reset options for local folder structures and saved configurations.';
+		dangerDesc.style.cssText = 'font-size: 13px !important; color: #9aa0a6 !important; margin: 0 0 20px 0 !important; line-height: 1.4 !important;';
+		tabReset.appendChild(dangerDesc);
 
 		const resetFoldersBtn = document.createElement('button');
 		resetFoldersBtn.textContent = 'Reset Folders Only';
 		resetFoldersBtn.className = 'custom-dialog-btn dialog-btn-delete';
-		resetFoldersBtn.style.display = 'block';
-		resetFoldersBtn.style.marginBottom = '15px';
+		resetFoldersBtn.style.cssText = 'background-color: #d93025 !important; color: #ffffff !important; border: none !important; border-radius: 8px !important; padding: 10px 18px !important; font-size: 13px !important; font-weight: 500 !important; cursor: pointer !important; display: block !important; margin-bottom: 16px !important;';
 		resetFoldersBtn.addEventListener('click', () => {
 			showConfirm("Are you sure you want to delete all folders?", async () => {
 				await GM_deleteValue(STORAGE_KEY_FOLDERS);
@@ -1162,7 +1318,7 @@
 		const resetAllBtn = document.createElement('button');
 		resetAllBtn.textContent = 'Reset EVERYTHING (Factory Reset)';
 		resetAllBtn.className = 'custom-dialog-btn dialog-btn-delete';
-		resetAllBtn.style.backgroundColor = '#cc2929'; // Redder
+		resetAllBtn.style.cssText = 'background-color: #b3261e !important; color: #ffffff !important; border: none !important; border-radius: 8px !important; padding: 10px 18px !important; font-size: 13px !important; font-weight: 600 !important; cursor: pointer !important; display: block !important;';
 		resetAllBtn.addEventListener('click', () => {
 			showConfirm("Are you sure? This will execute a full factory reset of the userscript, including Toolbar items, Folders, and Sync configuration.", async () => {
 				await GM_deleteValue(STORAGE_KEY_TOOLBAR_ITEMS);

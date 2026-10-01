@@ -408,9 +408,9 @@ window.GeminiMod.styles = `
         display: flex !important; flex: 1 1 auto !important; height: 100% !important; min-height: 0 !important; overflow: hidden !important;
     }
     .settings-sidebar {
-        width: 230px !important; min-width: 230px !important; flex-shrink: 0 !important;
+        width: 240px !important; min-width: 240px !important; flex-shrink: 0 !important;
         border-right: 1px solid #3c4043 !important; padding: 16px 12px !important;
-        display: flex !important; flex-direction: column !important; gap: 6px !important;
+        display: flex !important; flex-direction: column !important; gap: 8px !important;
         background-color: #1e2022 !important; box-sizing: border-box !important; overflow-y: auto !important;
     }
     .tab-btn {
@@ -425,11 +425,28 @@ window.GeminiMod.styles = `
     .tab-btn.active { background-color: #1a73e8 !important; color: #ffffff !important; font-weight: 600 !important; }
     .settings-sidebar-footer {
         margin-top: auto !important; display: flex !important; flex-direction: column !important;
-        gap: 8px !important; width: 100% !important; padding-top: 14px !important;
-        border-top: 1px solid #3c4043 !important; box-sizing: border-box !important;
+        gap: 10px !important; width: 100% !important; padding-top: 14px !important;
+        border-top: 1px solid #3c4043 !important; box-sizing: border-box !important; flex-shrink: 0 !important;
     }
+    .settings-sidebar-footer button {
+        width: 100% !important; height: 38px !important; box-sizing: border-box !important; margin: 0 !important;
+        border-radius: 8px !important; font-size: 13px !important; cursor: pointer !important;
+        display: inline-flex !important; align-items: center !important; justify-content: center !important;
+        transition: background-color 0.15s ease !important;
+    }
+    .settings-sidebar-footer .dialog-btn-cancel {
+        background-color: #353739 !important; color: #e3e3e3 !important;
+        border: 1px solid #5f6368 !important; font-weight: 500 !important;
+    }
+    .settings-sidebar-footer .dialog-btn-cancel:hover { background-color: #4a4e51 !important; }
+    .settings-sidebar-footer .dialog-btn-confirm {
+        background-color: #8ab4f8 !important; color: #1f1f1f !important;
+        border: none !important; font-weight: 600 !important;
+    }
+    .settings-sidebar-footer .dialog-btn-confirm:hover { background-color: #aecbfa !important; }
     .settings-content {
-        flex: 1 1 auto !important; padding: 24px 28px !important; overflow-y: auto !important;
+        flex: 1 1 auto !important; height: 100% !important; min-height: 0 !important;
+        padding: 24px 28px !important; overflow-y: auto !important;
         background-color: #242628 !important; box-sizing: border-box !important;
     }
     .tab-pane { display: none; animation: fadeIn 0.2s; }
@@ -473,18 +490,18 @@ window.GeminiMod.styles = `
         border-radius: 8px !important; padding: 12px 14px !important; color: #8ab4f8 !important;
         font-size: 13px !important; line-height: 1.45 !important; margin-bottom: 16px !important;
     }
-    .sync-input-group { margin-bottom: 14px !important; width: 100% !important; max-width: 460px !important; }
+    .sync-input-group { margin-bottom: 14px !important; width: 100% !important; max-width: 480px !important; }
     .sync-input-group label { display: block !important; margin: 0 0 6px 0 !important; font-size: 13px !important; font-weight: 500 !important; color: #c4c7c5 !important; }
     .sync-input-group input[type="email"],
     .sync-input-group input[type="text"],
     .sync-input-group input[type="password"] {
-        width: 100% !important; max-width: 460px !important; height: 40px !important; padding: 8px 12px !important;
+        width: 100% !important; max-width: 480px !important; height: 40px !important; padding: 8px 12px !important;
         border-radius: 8px !important; border: 1px solid #5f6368 !important; background-color: #282a2c !important;
         color: #e3e3e3 !important; box-sizing: border-box !important; font-size: 14px !important; outline: none !important;
         font-family: inherit !important; transition: border-color 0.2s, box-shadow 0.2s !important;
     }
     .sync-input-group input:focus { border-color: #8ab4f8 !important; box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.2) !important; }
-    .sync-password-wrapper { display: flex !important; align-items: center !important; gap: 8px !important; width: 100% !important; max-width: 460px !important; }
+    .sync-password-wrapper { display: flex !important; align-items: center !important; gap: 8px !important; width: 100% !important; max-width: 480px !important; }
     .sync-password-wrapper input {
         flex: 1 1 auto !important; min-width: 0 !important; width: 100% !important; height: 40px !important;
         padding: 8px 12px !important; border-radius: 8px !important; border: 1px solid #5f6368 !important;
